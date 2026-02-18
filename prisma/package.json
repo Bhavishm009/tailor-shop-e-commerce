@@ -1,0 +1,12 @@
+{
+  "name": "tailorhub-prisma",
+  "version": "1.0.0",
+  "description": "Prisma schema for TailorHub",
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:create": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "studio": "prisma studio",
+    "seed": "ts-node scripts/seed.ts"
+  }
+}

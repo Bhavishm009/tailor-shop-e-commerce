@@ -1,0 +1,129 @@
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { CheckCircle2, Scissors, ShoppingBag, TrendingUp } from "lucide-react"
+import { GlobalNavbar } from "@/components/global-navbar"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "TailorHub | Custom Stitching & Ready-Made Clothing",
+  description: "Shop ready-made garments or book custom stitching with expert tailors. TailorHub delivers precise fit and quality craftsmanship.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "TailorHub | Custom Stitching & Ready-Made Clothing",
+    description: "Shop ready-made garments or book custom stitching with expert tailors.",
+    url: "/",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TailorHub | Custom Stitching & Ready-Made Clothing",
+    description: "Shop ready-made garments or book custom stitching with expert tailors.",
+  },
+}
+
+export default function Home() {
+  return (
+    <main className="min-h-screen bg-background">
+      <GlobalNavbar />
+
+      {/* Hero */}
+      <section className="max-w-7xl mx-auto px-4 py-20">
+        <div className="text-center">
+          <h2 className="text-4xl md:text-6xl font-bold mb-6 text-pretty">Perfect Fit, Every Time</h2>
+          <p className="text-xl text-muted-foreground mb-8 text-balance max-w-2xl mx-auto">
+            Get custom-tailored clothing with expert craftsmanship or choose from our premium ready-made collection.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" asChild>
+              <Link href="/custom-stitching">Start Custom Order</Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link href="/products">Browse Products</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section id="features" className="max-w-7xl mx-auto px-4 py-16">
+        <h2 className="text-3xl font-bold mb-12 text-center">Why Choose TailorHub?</h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          {[
+            {
+              icon: <Scissors className="w-8 h-8" />,
+              title: "Expert Tailoring",
+              description: "Professional tailors with years of experience",
+            },
+            {
+              icon: <ShoppingBag className="w-8 h-8" />,
+              title: "Premium Collection",
+              description: "Curated ready-made garments of the highest quality",
+            },
+            {
+              icon: <TrendingUp className="w-8 h-8" />,
+              title: "Easy Tracking",
+              description: "Real-time order tracking and status updates",
+            },
+          ].map((feature, i) => (
+            <Card key={i} className="p-6">
+              <div className="text-primary mb-4">{feature.icon}</div>
+              <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+              <p className="text-muted-foreground">{feature.description}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* Services */}
+      <section id="services" className="bg-secondary py-16">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-3xl font-bold mb-12 text-center">Our Services</h2>
+          <div className="grid md:grid-cols-2 gap-8">
+            <Card className="p-8">
+              <h3 className="text-2xl font-bold mb-4">Custom Stitching</h3>
+              <ul className="space-y-3">
+                {[
+                  "Choose your fabric and design",
+                  "Save custom measurements",
+                  "Expert tailors assigned",
+                  "Track progress in real-time",
+                  "Rate your tailor",
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            <Card className="p-8">
+              <h3 className="text-2xl font-bold mb-4">Ready-Made Clothing</h3>
+              <ul className="space-y-3">
+                {[
+                  "Premium quality garments",
+                  "Variety of styles and sizes",
+                  "Easy checkout process",
+                  "Fast delivery",
+                  "Customer reviews & ratings",
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-primary text-primary-foreground py-8 mt-16">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p>&copy; 2026 TailorHub. All rights reserved.</p>
+        </div>
+      </footer>
+    </main>
+  )
+}

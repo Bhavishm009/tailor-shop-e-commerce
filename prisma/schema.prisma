@@ -1,0 +1,378 @@
+////////////////////////////////////////////////////////////
+// Generator & Datasource (REQUIRED)                      //
+////////////////////////////////////////////////////////////
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+////////////////////////////////////////////////////////////
+// Enums                                                  //
+////////////////////////////////////////////////////////////
+
+enum UserRole {
+  ADMIN
+  TAILOR
+  CUSTOMER
+}
+
+enum EcommerceOrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum StitchingOrderStatus {
+  PENDING
+  ASSIGNED
+  STITCHING
+  QC
+  COMPLETED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum TailorPayoutStatus {
+  PENDING
+  APPROVED
+  PAID
+}
+
+enum ClothType {
+  COTTON
+  SILK
+  WOOL
+  LINEN
+  POLYESTER
+  BLEND
+  CUSTOM
+}
+
+////////////////////////////////////////////////////////////
+// Models                                                 //
+////////////////////////////////////////////////////////////
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  password     String
+  role         UserRole @default(CUSTOMER)
+  profileImage String?
+  phone        String?
+  notifyEmail  Boolean  @default(true)
+  notifyPush   Boolean  @default(false)
+  notifyOrders Boolean  @default(true)
+  notifyOffers Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tailorProfile     TailorProfile?
+  customerAddresses Address[]
+  measurements      Measurement[]
+
+  orders          Order[]          @relation("CustomerOrders")
+  stitchingOrders StitchingOrder[] @relation("CustomerStitchingOrders")
+  assignments     Assignment[]     @relation("TailorAssignments")
+
+  customerReviews Review[] @relation("CustomerReviews")
+  tailorReviews   Review[] @relation("TailorReviews")
+
+  payments Payment[]
+  notifications Notification[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model TailorProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  bio             String?
+  specializations String?
+  yearsExperience Int      @default(0)
+  averageRating   Float    @default(0)
+  totalOrders     Int      @default(0)
+  totalEarnings   Float    @default(0)
+  monthlyEarnings Float    @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews     Review[]
+  assignments Assignment[]
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model StitchingService {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  category      String
+  name          String
+  customerPrice Float
+  tailorRate    Float
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  userId     String
+  street     String
+  city       String
+  state      String
+  postalCode String
+  country    String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([userId])
+}
+
+model Measurement {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  measurementType String?
+  measurementData Json?
+  chest         Float?
+  waist         Float?
+  hip           Float?
+  shoulder      Float?
+  sleeveLength  Float?
+  garmentLength Float?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stitchingOrders StitchingOrder[]
+
+  @@index([userId])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  image       String?
+  category    String
+  size        String?
+  color       String?
+  material    String?
+  stock       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems OrderItem[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model BlogPost {
+  id                    String   @id @default(cuid())
+  title                 String
+  slug                  String   @unique
+  excerpt               String
+  contentHtml           String
+  category              String
+  coverImage            String?
+  coverImageBlurDataUrl String?
+  seoTitle              String?
+  seoDescription        String?
+  seoKeywords           String?
+  ogTitle               String?
+  ogDescription         String?
+  ogImage               String?
+  ogImageBlurDataUrl    String?
+  canonicalUrl          String?
+  isPublished           Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([category])
+  @@index([isPublished])
+  @@index([createdAt])
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  customerId    String
+  addressId     String
+  orderNumber   String        @unique
+  status        EcommerceOrderStatus @default(PENDING)
+  totalAmount   Float
+  paymentStatus PaymentStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deliveredAt   DateTime?
+
+  customer User        @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Cascade)
+  address  Address     @relation(fields: [addressId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Float
+  createdAt DateTime @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model StitchingOrder {
+  id               String      @id @default(cuid())
+  customerId       String
+  measurementId    String
+  clothType        ClothType
+  fabricImage      String?
+  completedImage   String?
+  serviceKey       String?
+  stitchingService String
+  price            Float
+  status           StitchingOrderStatus @default(PENDING)
+  contactName      String?
+  contactPhone     String?
+  addressLine1     String?
+  addressCity      String?
+  addressState     String?
+  addressPostalCode String?
+  addressCountry   String?
+  notes            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deliveredAt      DateTime?
+
+  customer    User        @relation("CustomerStitchingOrders", fields: [customerId], references: [id], onDelete: Cascade)
+  measurement Measurement @relation(fields: [measurementId], references: [id])
+  assignment  Assignment?
+  payment     Payment?
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model Assignment {
+  id               String    @id @default(cuid())
+  stitchingOrderId String    @unique
+  tailorId         String
+  payoutRate       Float     @default(0)
+  payoutAmount     Float     @default(0)
+  payoutStatus     TailorPayoutStatus @default(PENDING)
+  paidAt           DateTime?
+  assignedAt       DateTime  @default(now())
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  stitchingOrder  StitchingOrder @relation(fields: [stitchingOrderId], references: [id], onDelete: Cascade)
+  tailor          User           @relation("TailorAssignments", fields: [tailorId], references: [id])
+  tailorProfile   TailorProfile? @relation(fields: [tailorProfileId], references: [id])
+  tailorProfileId String?
+
+  @@index([tailorId])
+  @@index([payoutStatus])
+}
+
+model Review {
+  id               String   @id @default(cuid())
+  customerId       String
+  tailorId         String
+  tailorProfileId  String
+  stitchingOrderId String
+  rating           Int
+  comment          String?
+  isApproved       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  customer      User          @relation("CustomerReviews", fields: [customerId], references: [id], onDelete: Cascade)
+  tailor        User          @relation("TailorReviews", fields: [tailorId], references: [id], onDelete: Cascade)
+  tailorProfile TailorProfile @relation(fields: [tailorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([tailorId])
+  @@index([isApproved])
+}
+
+model Payment {
+  id               String        @id @default(cuid())
+  orderId          String?
+  stitchingOrderId String?       @unique
+  customerId       String
+  amount           Float
+  status           PaymentStatus @default(PENDING)
+  stripePaymentId  String?
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  order          Order?          @relation(fields: [orderId], references: [id])
+  stitchingOrder StitchingOrder? @relation(fields: [stitchingOrderId], references: [id])
+  customer       User            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([status])
+  @@index([stripePaymentId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
