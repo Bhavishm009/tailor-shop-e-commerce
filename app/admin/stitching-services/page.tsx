@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { FeedbackToasts } from "@/components/admin/feedback-toasts"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Table,
   TableBody,
@@ -165,18 +167,17 @@ export default function AdminStitchingServicesPage() {
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Stitching Services</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Stitching Services</h1>
         <Button type="button" onClick={openCreate}>Add Service</Button>
       </div>
 
-      {error ? <Card className="p-4 text-sm text-red-600 border-red-300">{error}</Card> : null}
-      {success ? <Card className="p-4 text-sm text-green-700 border-green-300">{success}</Card> : null}
+      <FeedbackToasts error={error} success={success} />
 
-      <Card className="p-6 space-y-4">
+      <Card className="p-4 md:p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search key/category/name" className="max-w-md" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search key/category/name" className="w-full sm:max-w-md" />
           <select className="h-10 rounded-md border bg-background px-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")}>
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active</option>
@@ -247,9 +248,11 @@ export default function AdminStitchingServicesPage() {
               <Input value={form.tailorRate} onChange={(e) => setForm((prev) => ({ ...prev, tailorRate: e.target.value }))} type="number" min="0" step="0.01" placeholder="Tailor rate" required />
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={submitting}>{submitting ? "Saving..." : form.id ? "Update" : "Create"}</Button>
+            <DialogFooter className="justify-center gap-3">
+              <Button type="button" variant="outline" size="lg" className="min-w-32" onClick={() => setModalOpen(false)}>Cancel</Button>
+              <Button type="submit" size="lg" className="min-w-36" disabled={submitting}>
+                {submitting ? <><Spinner className="mr-2" />Saving...</> : form.id ? "Update" : "Create"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

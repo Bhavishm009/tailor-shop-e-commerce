@@ -3,6 +3,9 @@ import { db } from "@/lib/db"
 import { requireRole } from "@/lib/api-auth"
 import { createOrderNotification } from "@/lib/notifications"
 import { resolveMeasurementType } from "@/lib/measurement-presets"
+import type { ClothType } from "@prisma/client"
+
+const CLOTH_TYPES: ClothType[] = ["COTTON", "SILK", "WOOL", "LINEN", "POLYESTER", "BLEND", "CUSTOM"]
 
 export async function GET() {
   try {
@@ -42,7 +45,7 @@ export async function POST(request: NextRequest) {
     if (response || !session) return response
 
     const body = (await request.json()) as {
-      clothType?: string
+      clothType?: ClothType
       fabricImage?: string | null
       serviceKey?: string
       measurementId?: string
@@ -66,6 +69,10 @@ export async function POST(request: NextRequest) {
     })
     if (!service) {
       return NextResponse.json({ error: "Invalid stitching service" }, { status: 400 })
+    }
+
+    if (!body.clothType || !CLOTH_TYPES.includes(body.clothType)) {
+      return NextResponse.json({ error: "Invalid cloth type" }, { status: 400 })
     }
 
     const measurementType = resolveMeasurementType(service.key, service.name)
@@ -161,28 +168,35 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     })
 
-    await Promise.all([
-      ...admins.map((admin) =>
+    try {
+      await Promise.all([
+        ...admins.map((admin) =>
+          createOrderNotification({
+            userId: admin.id,
+            title: "New custom order",
+            message: `A new custom order (${service.name}) is waiting for assignment.`,
+            type: "CUSTOM_ORDER_CREATED",
+            link: "/admin/custom-orders",
+          })
+        ),
         createOrderNotification({
-          userId: admin.id,
-          title: "New custom order",
-          message: `A new custom order (${service.name}) is waiting for assignment.`,
+          userId: session.user.id,
+          title: "Custom order placed",
+          message: `Your custom order for ${service.name} has been created and is waiting for assignment.`,
           type: "CUSTOM_ORDER_CREATED",
-          link: "/admin/custom-orders",
-        })
-      ),
-      createOrderNotification({
-        userId: session.user.id,
-        title: "Custom order placed",
-        message: `Your custom order for ${service.name} has been created and is waiting for assignment.`,
-        type: "CUSTOM_ORDER_CREATED",
-        link: "/customer/orders",
-      }),
-    ])
+          link: "/customer/orders",
+        }),
+      ])
+    } catch (notifyError) {
+      console.error("[stitching-orders/create/notify]", notifyError)
+    }
 
     return NextResponse.json(stitchingOrder, { status: 201 })
   } catch (error) {
     console.error("[stitching-orders/create]", error)
-    return NextResponse.json({ error: "Failed to create stitching order" }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to create stitching order" },
+      { status: 500 },
+    )
   }
 }

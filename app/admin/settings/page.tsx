@@ -5,6 +5,8 @@ import { FormEvent, useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import { FeedbackToasts } from "@/components/admin/feedback-toasts"
+import { Spinner } from "@/components/ui/spinner"
 
 type NotificationPreferences = {
   notifyEmail: boolean
@@ -21,6 +23,7 @@ const managementLinks = [
   { href: "/admin/stitching-services", label: "Stitching Services", description: "Manage stitching categories, methods, rates, and availability." },
   { href: "/admin/products", label: "Manage Products", description: "Update ready-made product catalog and stock listings." },
   { href: "/admin/reviews", label: "Manage Reviews", description: "Monitor customer feedback and tailor performance." },
+  { href: "/admin/notifications", label: "Notifications", description: "Send broadcast push notifications to all users and guests." },
   { href: "/admin/blogs", label: "Manage Blogs", description: "Publish and maintain blog content for users." },
 ]
 
@@ -85,21 +88,22 @@ export default function AdminSettingsPage() {
       }
 
       setSuccess("Notification preferences updated.")
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save preferences.")
     } finally {
       setSavingPrefs(false)
     }
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-5xl space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Admin Settings</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Admin Settings</h1>
           <p className="text-muted-foreground mt-2">Central controls and your personal notification preferences.</p>
         </div>
 
-        {error ? <Card className="p-4 text-sm text-red-600 border-red-300">{error}</Card> : null}
-        {success ? <Card className="p-4 text-sm text-green-700 border-green-300">{success}</Card> : null}
+        <FeedbackToasts error={error} success={success} />
 
         <Card className="p-5 space-y-4">
           <h2 className="font-semibold">Notification Preferences</h2>
@@ -140,8 +144,8 @@ export default function AdminSettingsPage() {
                 <Switch checked={prefs.notifyOffers} onCheckedChange={(checked) => setPrefs((prev) => ({ ...prev, notifyOffers: checked }))} />
               </div>
 
-              <Button type="submit" disabled={savingPrefs}>
-                {savingPrefs ? "Saving..." : "Save Preferences"}
+              <Button type="submit" size="lg" className="min-w-44 mx-auto flex" disabled={savingPrefs}>
+                {savingPrefs ? <><Spinner className="mr-2" />Saving...</> : "Save Preferences"}
               </Button>
             </form>
           )}

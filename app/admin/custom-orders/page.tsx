@@ -1,10 +1,14 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { DatePicker } from "@/components/ui/date-picker"
+import { FeedbackToasts } from "@/components/admin/feedback-toasts"
+import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import {
   Table,
   TableBody,
@@ -31,7 +35,7 @@ type CustomOrder = {
   serviceKey?: string | null
   stitchingService: string
   totalAmount: number
-  status: "PENDING" | "ASSIGNED" | "STITCHING" | "COMPLETED" | "DELIVERED" | "CANCELLED"
+  status: "PENDING" | "ASSIGNED" | "STITCHING" | "QC" | "COMPLETED" | "DELIVERED" | "CANCELLED"
   assignedTailorId?: string | null
   assignedTailorName?: string | null
   payoutAmount?: number | null
@@ -53,7 +57,8 @@ type DatePreset = "ALL" | "TODAY" | "YESTERDAY" | "THIS_WEEK" | "LAST_WEEK" | "C
 const customTransitions: Record<CustomOrder["status"], CustomOrder["status"][]> = {
   PENDING: ["ASSIGNED", "CANCELLED"],
   ASSIGNED: ["STITCHING", "CANCELLED"],
-  STITCHING: ["COMPLETED", "CANCELLED"],
+  STITCHING: ["QC", "CANCELLED"],
+  QC: ["COMPLETED", "STITCHING", "CANCELLED"],
   COMPLETED: ["DELIVERED"],
   DELIVERED: [],
   CANCELLED: [],
@@ -80,6 +85,7 @@ const getStartOfWeek = (date: Date) => {
 }
 
 export default function CustomOrdersPage() {
+  const router = useRouter()
   const [orders, setOrders] = useState<CustomOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -293,17 +299,16 @@ export default function CustomOrdersPage() {
   const getStatusOptionsForOrder = (order: CustomOrder) => [order.status, ...(customTransitions[order.status] || [])]
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Custom Orders</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Custom Orders</h1>
       </div>
 
-      {error ? <Card className="p-4 text-sm text-red-600 border-red-300">{error}</Card> : null}
-      {success ? <Card className="p-4 text-sm text-green-700 border-green-300">{success}</Card> : null}
+      <FeedbackToasts error={error} success={success} />
 
-      <Card className="p-6 space-y-4">
+      <Card className="p-4 md:p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search custom order/customer" className="max-w-md" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search custom order/customer" className="w-full sm:max-w-md" />
           <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
             Filters
             {activeFiltersCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs text-primary-foreground">{activeFiltersCount}</span> : null}
@@ -349,8 +354,12 @@ export default function CustomOrdersPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell><input type="checkbox" checked={selectedRowIds.includes(order.id)} onChange={() => toggleRowSelection(order.id)} aria-label={`Select row for ${order.orderNumber}`} /></TableCell>
+                    <TableRow
+                      key={order.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/admin/custom-orders/${order.id}`)}
+                    >
+                      <TableCell><input type="checkbox" onClick={(event) => event.stopPropagation()} checked={selectedRowIds.includes(order.id)} onChange={() => toggleRowSelection(order.id)} aria-label={`Select row for ${order.orderNumber}`} /></TableCell>
                       <TableCell className="font-medium">{order.orderNumber}</TableCell>
                       <TableCell>
                         <div>
@@ -361,11 +370,11 @@ export default function CustomOrdersPage() {
                       <TableCell>{order.stitchingService}</TableCell>
                       <TableCell><Badge variant={order.status === "CANCELLED" ? "destructive" : "secondary"}>{order.status}</Badge></TableCell>
                       <TableCell>{order.assignedTailorName || "Not assigned"}</TableCell>
-                      <TableCell>{order.payoutAmount ? `Rs. ${order.payoutAmount} (${order.payoutStatus})` : "-"}</TableCell>
+                      <TableCell>{order.payoutAmount ? `Rs. ${order.payoutAmount.toFixed(2)} (${order.payoutStatus})` : "-"}</TableCell>
                       <TableCell>Rs. {order.totalAmount.toFixed(2)}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-2">
-                          <select className="h-8 rounded-md border bg-background px-2 text-xs" value={order.status} onChange={async (e) => {
+                          <select className="h-8 rounded-md border bg-background px-2 text-xs" onClick={(event) => event.stopPropagation()} value={order.status} onChange={async (e) => {
                             const nextStatus = e.target.value as CustomOrder["status"]
                             if (nextStatus === "ASSIGNED") {
                               await openAssignDialog(order.id)
@@ -386,7 +395,10 @@ export default function CustomOrdersPage() {
                             ))}
                           </select>
                           {order.status === "PENDING" ? (
-                            <Button type="button" variant="outline" size="sm" onClick={() => openAssignDialog(order.id)}>
+                            <Button type="button" variant="outline" size="sm" onClick={(event) => {
+                              event.stopPropagation()
+                              void openAssignDialog(order.id)
+                            }}>
                               Assign Tailor
                             </Button>
                           ) : null}
@@ -401,7 +413,7 @@ export default function CustomOrdersPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm">
                 <span>Rows per page</span>
-                <select className="h-9 rounded-md border bg-background px-2" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
+                <select className="h-9 rounded-md border bg-background" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
                   <option value={10}>10</option>
                   <option value={20}>20</option>
                   <option value={50}>50</option>
@@ -417,13 +429,19 @@ export default function CustomOrdersPage() {
         )}
       </Card>
 
-      <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Filter Custom Orders</DialogTitle>
-            <DialogDescription>Apply one or more filters to narrow listing results.</DialogDescription>
-          </DialogHeader>
-
+      <ResponsiveFilterModal
+        open={isFilterModalOpen}
+        onOpenChange={setIsFilterModalOpen}
+        title="Filter Custom Orders"
+        description="Apply one or more filters to narrow listing results."
+        desktopContentClassName="sm:max-w-xl"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={clearFilters}>Clear</Button>
+            <Button type="button" onClick={() => setIsFilterModalOpen(false)}>Apply Filters</Button>
+          </>
+        }
+      >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <p className="text-sm font-medium">Status</p>
@@ -432,6 +450,7 @@ export default function CustomOrdersPage() {
                 <option value="PENDING">PENDING</option>
                 <option value="ASSIGNED">ASSIGNED</option>
                 <option value="STITCHING">STITCHING</option>
+                <option value="QC">QC</option>
                 <option value="COMPLETED">COMPLETED</option>
                 <option value="DELIVERED">DELIVERED</option>
                 <option value="CANCELLED">CANCELLED</option>
@@ -460,20 +479,14 @@ export default function CustomOrdersPage() {
             {datePreset === "CUSTOM" ? (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Custom Date Range</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="date" value={customFromDate} onChange={(e) => setCustomFromDate(e.target.value)} />
-                  <Input type="date" value={customToDate} onChange={(e) => setCustomToDate(e.target.value)} />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <DatePicker value={customFromDate} onChange={setCustomFromDate} placeholder="From date" />
+                  <DatePicker value={customToDate} onChange={setCustomToDate} placeholder="To date" />
                 </div>
               </div>
             ) : null}
           </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={clearFilters}>Clear</Button>
-            <Button type="button" onClick={() => setIsFilterModalOpen(false)}>Apply Filters</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </ResponsiveFilterModal>
 
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
         <DialogContent className="sm:max-w-2xl">

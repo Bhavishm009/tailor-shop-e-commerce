@@ -2,10 +2,12 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { FeedbackToasts } from "@/components/feedback-toasts"
+import { Spinner } from "@/components/ui/spinner"
 import { Plus, Trash2 } from "lucide-react"
 
 interface Measurement {
@@ -22,6 +24,11 @@ interface Measurement {
 
 export default function MeasurementsPage() {
   const [measurements, setMeasurements] = useState<Measurement[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -34,51 +41,122 @@ export default function MeasurementsPage() {
     notes: "",
   })
 
+  useEffect(() => {
+    const loadMeasurements = async () => {
+      setError("")
+      try {
+        const response = await fetch("/api/measurements", { cache: "no-store" })
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({ error: "Failed to load measurements." }))
+          setError(data.error || "Failed to load measurements.")
+          return
+        }
+        const data = (await response.json()) as Measurement[]
+        setMeasurements(data)
+      } catch {
+        setError("Failed to load measurements.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void loadMeasurements()
+  }, [])
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const asNumber = (value: string) => {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+
   const handleAddMeasurement = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: API call to save measurement
-    const newMeasurement: Measurement = {
-      id: Math.random().toString(),
-      ...formData,
-      chest: formData.chest ? Number.parseFloat(formData.chest) : undefined,
-      waist: formData.waist ? Number.parseFloat(formData.waist) : undefined,
-      hip: formData.hip ? Number.parseFloat(formData.hip) : undefined,
-      shoulder: formData.shoulder ? Number.parseFloat(formData.shoulder) : undefined,
-      sleeveLength: formData.sleeveLength ? Number.parseFloat(formData.sleeveLength) : undefined,
-      garmentLength: formData.garmentLength ? Number.parseFloat(formData.garmentLength) : undefined,
+    setError("")
+    setSuccess("")
+    setSaving(true)
+
+    try {
+      const response = await fetch("/api/measurements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          notes: formData.notes || null,
+          chest: asNumber(formData.chest),
+          waist: asNumber(formData.waist),
+          hip: asNumber(formData.hip),
+          shoulder: asNumber(formData.shoulder),
+          sleeveLength: asNumber(formData.sleeveLength),
+          garmentLength: asNumber(formData.garmentLength),
+        }),
+      })
+
+      const data = (await response.json().catch(() => ({ error: "Failed to save measurement." }))) as
+        | Measurement
+        | { error?: string }
+      if (!response.ok) {
+        setError((data as { error?: string }).error || "Failed to save measurement.")
+        return
+      }
+
+      setMeasurements((prev) => [data as Measurement, ...prev])
+      setFormData({
+        name: "",
+        chest: "",
+        waist: "",
+        hip: "",
+        shoulder: "",
+        sleeveLength: "",
+        garmentLength: "",
+        notes: "",
+      })
+      setShowForm(false)
+      setSuccess("Measurement saved successfully.")
+    } catch {
+      setError("Failed to save measurement.")
+    } finally {
+      setSaving(false)
     }
-    setMeasurements((prev) => [...prev, newMeasurement])
-    setFormData({
-      name: "",
-      chest: "",
-      waist: "",
-      hip: "",
-      shoulder: "",
-      sleeveLength: "",
-      garmentLength: "",
-      notes: "",
-    })
-    setShowForm(false)
+  }
+
+  const handleDelete = async (id: string) => {
+    setError("")
+    setSuccess("")
+    setDeletingId(id)
+    try {
+      const response = await fetch(`/api/measurements/${id}`, { method: "DELETE" })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: "Failed to delete measurement." }))
+        setError(data.error || "Failed to delete measurement.")
+        return
+      }
+      setMeasurements((prev) => prev.filter((m) => m.id !== id))
+      setSuccess("Measurement deleted successfully.")
+    } catch {
+      setError("Failed to delete measurement.")
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-4xl">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Measurement Profiles</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold">Measurement Profiles</h1>
           <Button onClick={() => setShowForm(!showForm)}>
             <Plus className="w-4 h-4 mr-2" />
             Add Measurement
           </Button>
         </div>
+        <FeedbackToasts error={error} success={success} />
 
         {showForm && (
-          <Card className="p-8 mb-8">
+          <Card className="p-5 md:p-8 mb-6 md:mb-8">
             <h2 className="text-xl font-bold mb-6">New Measurement Profile</h2>
             <form onSubmit={handleAddMeasurement} className="space-y-6">
               <div>
@@ -127,7 +205,7 @@ export default function MeasurementsPage() {
               </div>
 
               <div className="flex gap-3">
-                <Button type="submit">Save Measurement</Button>
+                <Button type="submit" size="lg" className="min-w-44" disabled={saving}>{saving ? <><Spinner className="mr-2" />Saving...</> : "Save Measurement"}</Button>
                 <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
                   Cancel
                 </Button>
@@ -136,7 +214,11 @@ export default function MeasurementsPage() {
           </Card>
         )}
 
-        {measurements.length === 0 ? (
+        {loading ? (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">Loading measurements...</p>
+          </Card>
+        ) : measurements.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">No measurements saved yet</p>
           </Card>
@@ -170,7 +252,8 @@ export default function MeasurementsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setMeasurements((prev) => prev.filter((m) => m.id !== measurement.id))}
+                    disabled={deletingId === measurement.id}
+                    onClick={() => handleDelete(measurement.id)}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

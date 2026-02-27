@@ -5,6 +5,9 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { DatePicker } from "@/components/ui/date-picker"
+import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Table,
   TableBody,
@@ -21,11 +24,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { validateEmail, validateIndianMobile } from "@/lib/validation"
+import { toast } from "sonner"
 
 type UserRecord = {
   id: string
   name: string
   email: string
+  phone?: string | null
+  dateOfBirth?: string | null
   role: "ADMIN" | "TAILOR" | "CUSTOMER"
   status: "active" | "inactive"
   createdAt: string
@@ -72,6 +79,41 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [bulkActionLoading, setBulkActionLoading] = useState<string | null>(null)
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false)
+  const [creatingUser, setCreatingUser] = useState(false)
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "CUSTOMER" as "ADMIN" | "TAILOR" | "CUSTOMER",
+    dateOfBirth: "",
+    street: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    country: "India",
+  })
+
+  const isNewUserNameValid = newUser.name.trim().length >= 2
+  const isNewUserEmailValid = validateEmail(newUser.email)
+  const isNewUserPhoneValid = validateIndianMobile(newUser.phone)
+  const isNewUserDobValid = Boolean(newUser.dateOfBirth)
+  const isNewUserStreetValid = newUser.street.trim().length > 0
+  const isNewUserCityValid = newUser.city.trim().length > 0
+  const isNewUserStateValid = newUser.state.trim().length > 0
+  const isNewUserCountryValid = newUser.country.trim().length > 0
+  const isNewUserPostalValid = /^\d{6}$/.test(newUser.postalCode)
+  const canCreateUser =
+    isNewUserNameValid &&
+    isNewUserEmailValid &&
+    isNewUserPhoneValid &&
+    isNewUserDobValid &&
+    isNewUserStreetValid &&
+    isNewUserCityValid &&
+    isNewUserStateValid &&
+    isNewUserCountryValid &&
+    isNewUserPostalValid &&
+    !creatingUser
 
   const loadUsers = async () => {
     try {
@@ -94,6 +136,14 @@ export default function UsersPage() {
   useEffect(() => {
     loadUsers()
   }, [])
+
+  useEffect(() => {
+    if (error) toast.error(error)
+  }, [error])
+
+  useEffect(() => {
+    if (success) toast.success(success)
+  }, [success])
 
   const roleOptions = useMemo(() => {
     const values = Array.from(new Set(users.map((user) => user.role)))
@@ -270,6 +320,58 @@ export default function UsersPage() {
     setCustomToDate("")
   }
 
+  const createUser = async () => {
+    setError("")
+    setSuccess("")
+    setCreatingUser(true)
+
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          role: newUser.role,
+          dateOfBirth: newUser.dateOfBirth,
+          address: {
+            street: newUser.street,
+            city: newUser.city,
+            state: newUser.state,
+            postalCode: newUser.postalCode,
+            country: newUser.country,
+          },
+        }),
+      })
+
+      const data = (await response.json()) as { error?: string }
+
+      if (!response.ok) {
+        setError(data.error || "Failed to create customer.")
+        return
+      }
+
+      setSuccess("User added successfully.")
+      setNewUser({
+        name: "",
+        email: "",
+        phone: "",
+        role: "CUSTOMER",
+        dateOfBirth: "",
+        street: "",
+        city: "",
+        state: "",
+        postalCode: "",
+        country: "India",
+      })
+      setIsAddCustomerOpen(false)
+      await loadUsers()
+    } finally {
+      setCreatingUser(false)
+    }
+  }
+
   const toggleRole = (role: string) => {
     setSelectedRoles((prev) =>
       prev.includes(role)
@@ -279,21 +381,21 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Users Listing</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Users Listing</h1>
+        <Button type="button" onClick={() => setIsAddCustomerOpen(true)}>
+          Add User
+        </Button>
       </div>
 
-      {error ? <Card className="p-4 text-sm text-red-600 border-red-300">{error}</Card> : null}
-      {success ? <Card className="p-4 text-sm text-green-700 border-green-300">{success}</Card> : null}
-
-      <Card className="p-6 space-y-4">
+      <Card className="p-4 md:p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name/email/role"
-            className="max-w-md"
+            className="w-full sm:max-w-md"
           />
           <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
             Filters
@@ -354,6 +456,8 @@ export default function UsersPage() {
                     </TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Mobile</TableHead>
+                    <TableHead>DOB</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Joined</TableHead>
@@ -373,6 +477,8 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell className="font-medium">{user.name}</TableCell>
                       <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.phone || "-"}</TableCell>
+                      <TableCell>{user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : "-"}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{user.role}</Badge>
                       </TableCell>
@@ -405,7 +511,7 @@ export default function UsersPage() {
               <div className="flex items-center gap-2 text-sm">
                 <span>Rows per page</span>
                 <select
-                  className="h-9 rounded-md border bg-background px-2"
+                  className="h-9 rounded-md border bg-background"
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value))
@@ -431,14 +537,20 @@ export default function UsersPage() {
         )}
       </Card>
 
-      <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Filter Users</DialogTitle>
-            <DialogDescription>Apply one or more filters to narrow listing results.</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <ResponsiveFilterModal
+        open={isFilterModalOpen}
+        onOpenChange={setIsFilterModalOpen}
+        title="Filter Users"
+        description="Apply one or more filters to narrow listing results."
+        desktopContentClassName="sm:max-w-2xl"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={clearFilters}>Clear</Button>
+            <Button type="button" onClick={() => setIsFilterModalOpen(false)}>Apply Filters</Button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <p className="text-sm font-medium">Status</p>
               <select className="h-10 w-full rounded-md border bg-background px-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")}>
@@ -481,17 +593,90 @@ export default function UsersPage() {
             {datePreset === "CUSTOM" ? (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Custom Date Range</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="date" value={customFromDate} onChange={(e) => setCustomFromDate(e.target.value)} />
-                  <Input type="date" value={customToDate} onChange={(e) => setCustomToDate(e.target.value)} />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <DatePicker value={customFromDate} onChange={setCustomFromDate} placeholder="From date" />
+                  <DatePicker value={customToDate} onChange={setCustomToDate} placeholder="To date" />
                 </div>
               </div>
             ) : null}
           </div>
+      </ResponsiveFilterModal>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={clearFilters}>Clear</Button>
-            <Button type="button" onClick={() => setIsFilterModalOpen(false)}>Apply Filters</Button>
+      <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add User</DialogTitle>
+            <DialogDescription>Create a customer, tailor, or admin account directly from the admin panel.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-3">
+            <Input
+              placeholder="Full name"
+              value={newUser.name}
+              onChange={(e) => setNewUser((prev) => ({ ...prev, name: e.target.value }))}
+            />
+            {!isNewUserNameValid && newUser.name ? <p className="text-xs text-red-600">Name is too short</p> : null}
+            <Input
+              type="email"
+              placeholder="Email"
+              value={newUser.email}
+              onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
+            />
+            {!isNewUserEmailValid && newUser.email ? <p className="text-xs text-red-600">Invalid email</p> : null}
+            <Input
+              type="tel"
+              placeholder="Indian mobile (e.g. 9876543210)"
+              value={newUser.phone}
+              onChange={(e) => setNewUser((prev) => ({ ...prev, phone: e.target.value }))}
+            />
+            {!isNewUserPhoneValid && newUser.phone ? (
+              <p className="text-xs text-red-600">Enter valid Indian mobile (starts with 6-9)</p>
+            ) : null}
+            <select
+              className="h-10 rounded-md border bg-background px-3"
+              value={newUser.role}
+              onChange={(e) =>
+                setNewUser((prev) => ({ ...prev, role: e.target.value as "ADMIN" | "TAILOR" | "CUSTOMER" }))
+              }
+            >
+              <option value="CUSTOMER">Customer</option>
+              <option value="TAILOR">Tailor</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+            <DatePicker
+              value={newUser.dateOfBirth}
+              onChange={(value) => setNewUser((prev) => ({ ...prev, dateOfBirth: value }))}
+              placeholder="Date of birth"
+            />
+            {!isNewUserDobValid ? <p className="text-xs text-red-600">Date of birth is required</p> : null}
+            <Input placeholder="Street" value={newUser.street} onChange={(e) => setNewUser((prev) => ({ ...prev, street: e.target.value }))} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input placeholder="City" value={newUser.city} onChange={(e) => setNewUser((prev) => ({ ...prev, city: e.target.value }))} />
+              <Input placeholder="State" value={newUser.state} onChange={(e) => setNewUser((prev) => ({ ...prev, state: e.target.value }))} />
+              <Input placeholder="PIN code" value={newUser.postalCode} onChange={(e) => setNewUser((prev) => ({ ...prev, postalCode: e.target.value }))} />
+              <Input placeholder="Country" value={newUser.country} onChange={(e) => setNewUser((prev) => ({ ...prev, country: e.target.value }))} />
+            </div>
+            {!isNewUserStreetValid ? <p className="text-xs text-red-600">Street is required</p> : null}
+            {!isNewUserCityValid ? <p className="text-xs text-red-600">City is required</p> : null}
+            {!isNewUserStateValid ? <p className="text-xs text-red-600">State is required</p> : null}
+            {!isNewUserPostalValid ? <p className="text-xs text-red-600">PIN code must be 6 digits</p> : null}
+            {!isNewUserCountryValid ? <p className="text-xs text-red-600">Country is required</p> : null}
+          </div>
+
+          <DialogFooter className="justify-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="min-w-32"
+              onClick={() => setIsAddCustomerOpen(false)}
+              disabled={creatingUser}
+            >
+              Cancel
+            </Button>
+            <Button type="button" size="lg" className="min-w-40" onClick={createUser} disabled={!canCreateUser}>
+              {creatingUser ? <><Spinner className="mr-2" />Creating...</> : "Create User"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

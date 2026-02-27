@@ -4,7 +4,7 @@ export async function POST(request: NextRequest) {
   try {
     await request.json()
     return NextResponse.json(
-      { error: "Use NextAuth credentials signIn via /api/auth/[...nextauth]" },
+      { error: "Use OTP flow: POST /api/auth/request-login-otp then signIn via /api/auth/[...nextauth]" },
       { status: 405 },
     )
   } catch (error) {

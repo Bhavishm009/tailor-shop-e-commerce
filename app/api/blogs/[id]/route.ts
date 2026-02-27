@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/api-auth"
 import { db } from "@/lib/db"
+import { deleteManyImageKitFilesByUrls } from "@/lib/imagekit"
 
 function slugify(input: string) {
   return input
@@ -9,6 +10,10 @@ function slugify(input: string) {
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
+}
+
+function collectBlogMediaUrls(post: { coverImage?: string | null; ogImage?: string | null }) {
+  return Array.from(new Set([post.coverImage?.trim() || "", post.ogImage?.trim() || ""].filter(Boolean)))
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -58,6 +63,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!existing) {
       return NextResponse.json({ error: "Blog post not found" }, { status: 404 })
     }
+    const existingMediaUrls = collectBlogMediaUrls(existing)
 
     const nextTitle = typeof body.title === "string" ? body.title.trim() : existing.title
     const nextContent = typeof body.contentHtml === "string" ? body.contentHtml.trim() : existing.contentHtml
@@ -110,6 +116,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       },
     })
 
+    const updatedMediaUrls = collectBlogMediaUrls(post)
+    const updatedMediaSet = new Set(updatedMediaUrls)
+    const urlsToDelete = existingMediaUrls.filter((url) => !updatedMediaSet.has(url))
+    if (urlsToDelete.length > 0) {
+      await deleteManyImageKitFilesByUrls(urlsToDelete)
+    }
+
     return NextResponse.json(post)
   } catch (error) {
     console.error("[blogs/id/patch]", error)
@@ -127,8 +140,12 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     if (!existing) {
       return NextResponse.json({ error: "Blog post not found" }, { status: 404 })
     }
+    const mediaUrlsToDelete = collectBlogMediaUrls(existing)
 
     await db.blogPost.delete({ where: { id } })
+    if (mediaUrlsToDelete.length > 0) {
+      await deleteManyImageKitFilesByUrls(mediaUrlsToDelete)
+    }
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[blogs/id/delete]", error)

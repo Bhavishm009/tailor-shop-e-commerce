@@ -20,6 +20,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           },
         },
         measurement: true,
+        payment: {
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            createdAt: true,
+          },
+        },
         assignment: {
           include: {
             tailor: {
@@ -45,4 +53,3 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Failed to load custom order details" }, { status: 500 })
   }
 }
-

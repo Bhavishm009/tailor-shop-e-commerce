@@ -28,7 +28,7 @@ export default function Home() {
       <GlobalNavbar />
 
       {/* Hero */}
-      <section className="max-w-7xl mx-auto px-4 py-20">
+      <section className="max-w-7xl mx-auto px-4 py-12 md:py-20">
         <div className="text-center">
           <h2 className="text-4xl md:text-6xl font-bold mb-6 text-pretty">Perfect Fit, Every Time</h2>
           <p className="text-xl text-muted-foreground mb-8 text-balance max-w-2xl mx-auto">
@@ -46,8 +46,8 @@ export default function Home() {
       </section>
 
       {/* Features */}
-      <section id="features" className="max-w-7xl mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold mb-12 text-center">Why Choose TailorHub?</h2>
+      <section id="features" className="max-w-7xl mx-auto px-4 py-10 md:py-16">
+        <h2 className="text-2xl md:text-3xl font-bold mb-8 md:mb-12 text-center">Why Choose TailorHub?</h2>
         <div className="grid md:grid-cols-3 gap-8">
           {[
             {
@@ -76,12 +76,12 @@ export default function Home() {
       </section>
 
       {/* Services */}
-      <section id="services" className="bg-secondary py-16">
+      <section id="services" className="bg-secondary py-10 md:py-16">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-12 text-center">Our Services</h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            <Card className="p-8">
-              <h3 className="text-2xl font-bold mb-4">Custom Stitching</h3>
+          <h2 className="text-2xl md:text-3xl font-bold mb-8 md:mb-12 text-center">Our Services</h2>
+          <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+            <Card className="p-4 sm:p-6 md:p-8">
+              <h3 className="text-xl md:text-2xl font-bold mb-4">Custom Stitching</h3>
               <ul className="space-y-3">
                 {[
                   "Choose your fabric and design",
@@ -97,8 +97,8 @@ export default function Home() {
                 ))}
               </ul>
             </Card>
-            <Card className="p-8">
-              <h3 className="text-2xl font-bold mb-4">Ready-Made Clothing</h3>
+            <Card className="p-4 sm:p-6 md:p-8">
+              <h3 className="text-xl md:text-2xl font-bold mb-4">Ready-Made Clothing</h3>
               <ul className="space-y-3">
                 {[
                   "Premium quality garments",
@@ -119,7 +119,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-primary text-primary-foreground py-8 mt-16">
+      <footer className="bg-primary text-primary-foreground py-8 mt-10 md:mt-16">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p>&copy; 2026 TailorHub. All rights reserved.</p>
         </div>

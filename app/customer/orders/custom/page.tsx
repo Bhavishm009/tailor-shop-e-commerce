@@ -13,6 +13,8 @@ import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
 import { ChevronLeft, Upload } from "lucide-react"
 import { uploadFile, isValidImageFile } from "@/lib/file-upload"
+import { FeedbackToasts } from "@/components/feedback-toasts"
+import { Spinner } from "@/components/ui/spinner"
 
 const clothTypes = [
   { value: "COTTON", label: "Cotton" },
@@ -23,6 +25,9 @@ const clothTypes = [
   { value: "BLEND", label: "Fabric Blend" },
   { value: "CUSTOM", label: "Custom" },
 ]
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value)
 
 export default function CustomStitchingPage() {
   const router = useRouter()
@@ -126,7 +131,14 @@ export default function CustomStitchingPage() {
       })
 
       if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: "Failed to create custom order." }))
+        const data = (await response.json().catch(() => ({ error: "Failed to create custom order." }))) as {
+          error?: string
+          url?: string
+        }
+        if (data.url?.includes("/api/auth/error")) {
+          setError("Your session expired. Please login again and place the order.")
+          return
+        }
         setError(data.error || "Failed to create custom order.")
         return
       }
@@ -140,7 +152,7 @@ export default function CustomStitchingPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-2xl">
         <Button variant="ghost" asChild className="mb-6">
           <Link href="/customer/orders">
@@ -149,11 +161,10 @@ export default function CustomStitchingPage() {
           </Link>
         </Button>
 
-        <h1 className="text-3xl font-bold mb-2">Create Custom Stitching Order</h1>
-        <p className="text-muted-foreground mb-8">Fill in your details and upload your fabric</p>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">Create Custom Stitching Order</h1>
+        <p className="text-muted-foreground mb-6 md:mb-8">Fill in your details and upload your fabric</p>
 
-        {error ? <Card className="p-3 mb-4 text-sm border-red-300 text-red-600">{error}</Card> : null}
-        {success ? <Card className="p-3 mb-4 text-sm border-green-300 text-green-700">{success}</Card> : null}
+        <FeedbackToasts error={error} success={success} />
 
         <div className="flex gap-2 mb-8">
           {[1, 2, 3].map((s) => (
@@ -163,7 +174,7 @@ export default function CustomStitchingPage() {
 
         <form onSubmit={handleSubmit}>
           {step === 1 && (
-            <Card className="p-8">
+            <Card className="p-5 md:p-8">
               <h2 className="text-xl font-bold mb-6">Select Fabric Type</h2>
               <div className="space-y-4 mb-6">
                 <div>
@@ -216,7 +227,7 @@ export default function CustomStitchingPage() {
           )}
 
           {step === 2 && (
-            <Card className="p-8">
+            <Card className="p-5 md:p-8">
               <h2 className="text-xl font-bold mb-6">Select Stitching Service</h2>
               <RadioGroup
                 value={formData.serviceKey}
@@ -232,7 +243,7 @@ export default function CustomStitchingPage() {
                       <label htmlFor={service.key} className="flex-1 ml-3 cursor-pointer">
                         <p className="font-medium">{service.name}</p>
                         <p className="text-xs text-muted-foreground">{service.category}</p>
-                        <p className="text-sm text-muted-foreground">Price: Rs. {service.customerPrice}</p>
+                        <p className="text-sm text-muted-foreground">Price: Rs. {formatCurrency(service.customerPrice)}</p>
                       </label>
                     </div>
                   ))}
@@ -251,7 +262,7 @@ export default function CustomStitchingPage() {
           )}
 
           {step === 3 && (
-            <Card className="p-8">
+            <Card className="p-5 md:p-8">
               <h2 className="text-xl font-bold mb-6">Select Measurements & Review</h2>
               <div className="space-y-6 mb-6">
                 <div>
@@ -284,7 +295,7 @@ export default function CustomStitchingPage() {
 
                 <div className="bg-secondary p-4 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-2">Estimated Price</p>
-                  <p className="text-3xl font-bold">Rs. {selectedService?.customerPrice ?? 0}</p>
+                  <p className="text-3xl font-bold">Rs. {formatCurrency(selectedService?.customerPrice ?? 0)}</p>
                 </div>
               </div>
 
@@ -292,8 +303,8 @@ export default function CustomStitchingPage() {
                 <Button type="button" variant="outline" onClick={() => setStep(2)}>
                   Back
                 </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? "Placing..." : "Place Order"}
+                <Button type="submit" size="lg" className="min-w-40" disabled={submitting}>
+                  {submitting ? <><Spinner className="mr-2" />Placing...</> : "Place Order"}
                 </Button>
               </div>
             </Card>

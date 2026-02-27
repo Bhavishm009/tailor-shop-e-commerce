@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Menu, BarChart3, Users, Package, Scissors, Settings, Star, FileText, User, LogOut } from "lucide-react"
+import { Menu, BarChart3, Users, Package, Scissors, Settings, Star, FileText, User, LogOut, Bell, Wallet } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 
@@ -34,11 +34,14 @@ export default function AdminLayout({
     { href: "/admin/users", label: "Users", icon: Users },
     { href: "/admin/tailors", label: "Tailors", icon: Scissors },
     { href: "/admin/products", label: "Products", icon: Package },
+    { href: "/admin/product-masters", label: "Product Masters", icon: Settings },
     { href: "/admin/blogs", label: "Blogs", icon: FileText },
     { href: "/admin/ready-made-orders", label: "Ready-Made Orders", icon: Package },
     { href: "/admin/custom-orders", label: "Custom Orders", icon: Scissors },
+    { href: "/admin/tailor-accounts", label: "Tailor Accounts", icon: Wallet },
     { href: "/admin/stitching-services", label: "Stitching Services", icon: Scissors },
     { href: "/admin/reviews", label: "Reviews", icon: Star },
+    { href: "/admin/notifications", label: "Notifications", icon: Bell },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ]
 

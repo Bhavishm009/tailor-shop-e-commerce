@@ -9,20 +9,23 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useCart } from "@/components/cart-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Menu, Scissors, Search, ShoppingCart, X } from "lucide-react"
+import { Heart, Menu, Scissors, Search, ShoppingCart, X } from "lucide-react"
 import { getDashboardByRole } from "@/lib/role-routes"
 
 export function GlobalNavbar() {
   const router = useRouter()
   const { data: session } = useSession()
-  const { count } = useCart()
+  const { count, wishlistCount } = useCart()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [query, setQuery] = useState("")
 
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmedQuery = query.trim()
-    if (!trimmedQuery) return
+    if (!trimmedQuery) {
+      router.push("/search")
+      return
+    }
 
     router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`)
   }
@@ -36,7 +39,7 @@ export function GlobalNavbar() {
             <h1 className="text-2xl font-bold">TailorHub</h1>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-4 xl:gap-6">
             <Link href="/features" className="hover:text-primary transition">
               Features
             </Link>
@@ -51,7 +54,7 @@ export function GlobalNavbar() {
             </Link>
           </nav>
 
-          <form onSubmit={onSearch} className="hidden md:flex items-center gap-2 w-full max-w-md">
+          <form onSubmit={onSearch} className="hidden lg:flex items-center gap-2 w-full max-w-sm xl:max-w-md">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
               <Input
@@ -66,13 +69,23 @@ export function GlobalNavbar() {
             </Button>
           </form>
 
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-2 xl:gap-3">
             <Button variant="outline" asChild className="relative">
               <Link href="/cart" aria-label="Cart">
                 <ShoppingCart className="w-4 h-4" />
                 {count > 0 ? (
                   <Badge className="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center text-[10px]">
                     {count}
+                  </Badge>
+                ) : null}
+              </Link>
+            </Button>
+            <Button variant="outline" asChild className="relative">
+              <Link href="/wishlist" aria-label="Wishlist">
+                <Heart className="w-4 h-4" />
+                {wishlistCount > 0 ? (
+                  <Badge className="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center text-[10px]">
+                    {wishlistCount}
                   </Badge>
                 ) : null}
               </Link>
@@ -98,13 +111,13 @@ export function GlobalNavbar() {
             )}
           </div>
 
-          <button className="md:hidden" onClick={() => setMobileOpen((prev) => !prev)} aria-label="Toggle menu">
+          <button className="lg:hidden" onClick={() => setMobileOpen((prev) => !prev)} aria-label="Toggle menu">
             {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
 
         {mobileOpen && (
-          <div className="md:hidden border-t mt-4 pt-4 space-y-4">
+          <div className="lg:hidden border-t mt-4 pt-4 space-y-4">
             <form onSubmit={onSearch} className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
@@ -139,6 +152,9 @@ export function GlobalNavbar() {
               </Link>
               <Link href="/cart" onClick={() => setMobileOpen(false)} className="hover:text-primary transition">
                 Cart ({count})
+              </Link>
+              <Link href="/wishlist" onClick={() => setMobileOpen(false)} className="hover:text-primary transition">
+                Wishlist ({wishlistCount})
               </Link>
               <div>
                 <ThemeToggle />

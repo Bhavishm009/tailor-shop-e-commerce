@@ -14,7 +14,38 @@ function getImageKitClient() {
   })
 }
 
-export async function uploadImageToImageKit(args: {
+function toImageKitFilePath(url: string) {
+  if (!IMAGEKIT_URL_ENDPOINT) return null
+
+  try {
+    const endpoint = new URL(IMAGEKIT_URL_ENDPOINT)
+    const target = new URL(url)
+    if (endpoint.host !== target.host) return null
+
+    const endpointPath = endpoint.pathname.replace(/\/+$/, "")
+    let filePath = target.pathname
+
+    if (endpointPath && endpointPath !== "/") {
+      if (filePath === endpointPath) {
+        return null
+      }
+      if (!filePath.startsWith(`${endpointPath}/`)) {
+        return null
+      }
+      filePath = filePath.slice(endpointPath.length)
+    }
+
+    // Ignore transformed delivery URLs and keep the original file path.
+    filePath = filePath.replace(/^\/tr:[^/]+/, "")
+    if (!filePath.startsWith("/")) filePath = `/${filePath}`
+    if (filePath === "/" || filePath.length < 2) return null
+    return filePath
+  } catch {
+    return null
+  }
+}
+
+export async function uploadFileToImageKit(args: {
   fileBytes: Uint8Array
   fileName: string
   folder?: string
@@ -58,6 +89,47 @@ export async function createBlurDataUrlFromImageUrl(url: string) {
   const buffer = Buffer.from(await response.arrayBuffer())
   const contentType = response.headers.get("content-type") || "image/jpeg"
   return `data:${contentType};base64,${buffer.toString("base64")}`
+}
+
+export async function deleteImageKitFileByUrl(url: string) {
+  if (!url || !isImageKitConfigured()) return false
+
+  const filePath = toImageKitFilePath(url)
+  if (!filePath) return false
+
+  const imageKit = getImageKitClient()
+  const escaped = filePath.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+  const assets = await imageKit.assets.list({
+    type: "file",
+    limit: 1,
+    searchQuery: `filePath = "${escaped}"`,
+  })
+  let fileId: string | null = null
+  for (const asset of assets) {
+    if (asset.type === "file" && "fileId" in asset && typeof asset.fileId === "string") {
+      fileId = asset.fileId
+      break
+    }
+  }
+  if (!fileId) return false
+
+  await imageKit.files.delete(fileId)
+  return true
+}
+
+export async function deleteManyImageKitFilesByUrls(urls: Array<string | null | undefined>) {
+  const uniqueUrls = Array.from(new Set(urls.filter((url): url is string => typeof url === "string" && url.trim().length > 0)))
+  if (!uniqueUrls.length || !isImageKitConfigured()) return
+
+  await Promise.all(
+    uniqueUrls.map(async (url) => {
+      try {
+        await deleteImageKitFileByUrl(url)
+      } catch (error) {
+        console.warn("[imagekit/delete]", { url, error })
+      }
+    }),
+  )
 }
 
 export function isImageKitConfigured() {

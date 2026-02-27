@@ -1,11 +1,14 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
+import { FeedbackToasts } from "@/components/feedback-toasts"
+import Link from "next/link"
 import { uploadFile, isValidImageFile } from "@/lib/file-upload"
 
 type TailorOrder = {
@@ -18,7 +21,7 @@ type TailorOrder = {
   clothType: string
   fabricImage?: string | null
   completedImage?: string | null
-  status: "ASSIGNED" | "STITCHING" | "COMPLETED" | "DELIVERED" | "CANCELLED"
+  status: "ASSIGNED" | "STITCHING" | "QC" | "COMPLETED" | "DELIVERED" | "CANCELLED"
   payoutRate: number
   payoutAmount: number
   payoutStatus: "PENDING" | "APPROVED" | "PAID"
@@ -37,6 +40,7 @@ type TailorOrder = {
 }
 
 export default function OrdersPage() {
+  const router = useRouter()
   const [orders, setOrders] = useState<TailorOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -67,7 +71,7 @@ export default function OrdersPage() {
   }, [])
 
   const activeOrders = useMemo(
-    () => orders.filter((order) => ["ASSIGNED", "STITCHING"].includes(order.status)),
+    () => orders.filter((order) => ["ASSIGNED", "STITCHING", "QC"].includes(order.status)),
     [orders],
   )
   const completedOrders = useMemo(
@@ -78,6 +82,7 @@ export default function OrdersPage() {
   const statusColors: Record<string, string> = {
     ASSIGNED: "bg-blue-100 text-blue-800",
     STITCHING: "bg-purple-100 text-purple-800",
+    QC: "bg-indigo-100 text-indigo-800",
     COMPLETED: "bg-green-100 text-green-800",
     DELIVERED: "bg-gray-100 text-gray-800",
     CANCELLED: "bg-red-100 text-red-800",
@@ -129,18 +134,16 @@ export default function OrdersPage() {
   }
 
   const renderOrderCard = (order: TailorOrder) => (
-    <Card key={order.id} className="p-6">
-      <div className="flex items-start justify-between gap-4">
+    <Card key={order.id} className="p-4 md:p-6 cursor-pointer hover:bg-muted/30" onClick={() => router.push(`/tailor/orders/${order.id}`)}>
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-bold">{order.customerName}</h3>
             <Badge className={statusColors[order.status]}>{order.status}</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{order.customerEmail}</p>
           <p className="text-sm"><span className="text-muted-foreground">Service:</span> {order.stitchingService}</p>
           <p className="text-sm"><span className="text-muted-foreground">Cloth Type:</span> {order.clothType}</p>
           <p className="text-sm"><span className="text-muted-foreground">Assigned:</span> {new Date(order.assignedAt).toLocaleDateString()}</p>
-          <p className="text-sm"><span className="text-muted-foreground">Payout:</span> Rs. {order.payoutAmount} ({order.payoutStatus})</p>
           {order.notes ? <p className="text-sm"><span className="text-muted-foreground">Notes:</span> {order.notes}</p> : null}
           {order.fabricImage ? (
             <a href={order.fabricImage} target="_blank" rel="noreferrer" className="text-xs underline text-primary">View fabric image</a>
@@ -158,9 +161,9 @@ export default function OrdersPage() {
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 w-full md:w-auto">
           {order.status === "ASSIGNED" ? (
-            <Button size="sm" onClick={() => updateStatus(order.id, "STITCHING")} disabled={updatingId === order.id}>
+            <Button size="sm" onClick={(e) => { e.stopPropagation(); void updateStatus(order.id, "STITCHING") }} disabled={updatingId === order.id}>
               {updatingId === order.id ? "Updating..." : "Start Stitching"}
             </Button>
           ) : null}
@@ -171,14 +174,18 @@ export default function OrdersPage() {
                 type="file"
                 accept="image/*"
                 disabled={uploadingCompletedId === order.id}
-                onChange={(event) => onUploadCompleted(event, order)}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => {
+                  event.stopPropagation()
+                  void onUploadCompleted(event, order)
+                }}
               />
               <p className="text-xs text-muted-foreground">Upload completed product image to mark as completed.</p>
             </>
           ) : null}
 
           {order.completedImage ? (
-            <a href={order.completedImage} target="_blank" rel="noreferrer" className="text-xs underline text-primary">View completed image</a>
+            <a href={order.completedImage} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs underline text-primary">View completed image</a>
           ) : null}
         </div>
       </div>
@@ -186,12 +193,16 @@ export default function OrdersPage() {
   )
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-6xl">
-        <h1 className="text-3xl font-bold mb-8">Assigned Custom Orders</h1>
+        <div className="mb-6 md:mb-8 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl md:text-3xl font-bold">Assigned Custom Orders</h1>
+          <Button variant="outline" asChild>
+            <Link href="/tailor/orders/scan">Scan QR</Link>
+          </Button>
+        </div>
 
-        {error ? <Card className="p-3 mb-4 text-sm border-red-300 text-red-600">{error}</Card> : null}
-        {success ? <Card className="p-3 mb-4 text-sm border-green-300 text-green-700">{success}</Card> : null}
+        <FeedbackToasts error={error} success={success} />
 
         <Tabs defaultValue="active" className="mb-8">
           <TabsList>

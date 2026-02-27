@@ -35,13 +35,13 @@ export default function FeaturesPage() {
       <GlobalNavbar />
       <section className="max-w-7xl mx-auto px-4 py-10 space-y-10">
         <div className="text-center space-y-3">
-          <h1 className="text-4xl font-bold">Platform Features</h1>
+          <h1 className="text-3xl md:text-4xl font-bold">Platform Features</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             TailorHub combines online shopping with custom stitching so users can choose ready-made products or book personalized tailoring.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {featureCards.map((feature) => (
             <Card key={feature.title} className="p-6 space-y-3">
               <div className="text-primary">{feature.icon}</div>

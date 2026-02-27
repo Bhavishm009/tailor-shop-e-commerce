@@ -64,6 +64,15 @@ enum ClothType {
   CUSTOM
 }
 
+enum ProductMasterType {
+  CATEGORY
+  SUBCATEGORY
+  CLOTH_TYPE
+  MATERIAL
+  SIZE
+  COLOR
+}
+
 ////////////////////////////////////////////////////////////
 // Models                                                 //
 ////////////////////////////////////////////////////////////
@@ -76,10 +85,13 @@ model User {
   role         UserRole @default(CUSTOMER)
   profileImage String?
   phone        String?
+  dateOfBirth  DateTime?
   notifyEmail  Boolean  @default(true)
   notifyPush   Boolean  @default(false)
   notifyOrders Boolean  @default(true)
   notifyOffers Boolean  @default(false)
+  cart         Json?
+  wishlist     Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -93,9 +105,11 @@ model User {
 
   customerReviews Review[] @relation("CustomerReviews")
   tailorReviews   Review[] @relation("TailorReviews")
+  productReviews  ProductReview[] @relation("CustomerProductReviews")
 
   payments Payment[]
   notifications Notification[]
+  pushSubscriptions PushSubscription[]
 
   @@index([email])
   @@index([role])
@@ -179,24 +193,121 @@ model Measurement {
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  price       Float
-  image       String?
-  category    String
-  size        String?
-  color       String?
-  material    String?
-  stock       Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  slug           String?  @unique
+  description    String?
+  price          Float
+  image          String?
+  images         Json?
+  videos         Json?
+  category       String
+  subcategory    String?
+  clothType      String?
+  size           String?
+  color          String?
+  colors         Json?
+  material       String?
+  tags           Json?
+  highlights     Json?
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String?
+  canonicalUrl   String?
+  categoryId     String?
+  subcategoryId  String?
+  clothTypeId    String?
+  materialId     String?
+  stock          Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   orderItems OrderItem[]
+  faqs      ProductFaq[]
+  reviews   ProductReview[]
+  categoryMaster ProductMaster? @relation("ProductCategoryMaster", fields: [categoryId], references: [id])
+  subcategoryMaster ProductMaster? @relation("ProductSubcategoryMaster", fields: [subcategoryId], references: [id])
+  clothTypeMaster ProductMaster? @relation("ProductClothTypeMaster", fields: [clothTypeId], references: [id])
+  materialMaster ProductMaster? @relation("ProductMaterialMaster", fields: [materialId], references: [id])
+  masterSelections ProductMasterSelection[]
 
   @@index([category])
   @@index([isActive])
+  @@index([clothType])
+  @@index([slug])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([clothTypeId])
+  @@index([materialId])
+}
+
+model ProductMaster {
+  id        String            @id @default(cuid())
+  name      String
+  slug      String
+  type      ProductMasterType
+  isActive  Boolean           @default(true)
+  parentId  String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  parent   ProductMaster?  @relation("ProductMasterHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children ProductMaster[] @relation("ProductMasterHierarchy")
+
+  categoryProducts    Product[]               @relation("ProductCategoryMaster")
+  subcategoryProducts Product[]               @relation("ProductSubcategoryMaster")
+  clothTypeProducts   Product[]               @relation("ProductClothTypeMaster")
+  materialProducts    Product[]               @relation("ProductMaterialMaster")
+  selections          ProductMasterSelection[]
+
+  @@unique([type, slug])
+  @@index([type, isActive])
+  @@index([parentId])
+}
+
+model ProductMasterSelection {
+  id        String   @id @default(cuid())
+  productId String
+  masterId  String
+  createdAt DateTime @default(now())
+
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  master  ProductMaster @relation(fields: [masterId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, masterId])
+  @@index([masterId])
+  @@index([productId])
+}
+
+model Faq {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  category  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products ProductFaq[]
+
+  @@index([isActive])
+  @@index([category])
+}
+
+model ProductFaq {
+  id        String   @id @default(cuid())
+  productId String
+  faqId     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  faq     Faq     @relation(fields: [faqId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, faqId])
+  @@index([productId, order])
+  @@index([faqId])
 }
 
 model BlogPost {
@@ -241,6 +352,7 @@ model Order {
   customer User        @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Cascade)
   address  Address     @relation(fields: [addressId], references: [id])
   items    OrderItem[]
+  productReviews ProductReview[]
   payments Payment[]
 
   @@index([customerId])
@@ -338,6 +450,29 @@ model Review {
   @@index([isApproved])
 }
 
+model ProductReview {
+  id         String   @id @default(cuid())
+  productId  String
+  customerId String
+  orderId    String
+  rating     Int
+  title      String?
+  comment    String?
+  photos     Json?
+  isApproved Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product  Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer User    @relation("CustomerProductReviews", fields: [customerId], references: [id], onDelete: Cascade)
+  order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, customerId])
+  @@index([productId, isApproved, createdAt])
+  @@index([customerId])
+  @@index([orderId])
+}
+
 model Payment {
   id               String        @id @default(cuid())
   orderId          String?
@@ -375,4 +510,19 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

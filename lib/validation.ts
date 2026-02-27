@@ -29,8 +29,31 @@ export function validatePassword(password: string): {
 }
 
 export function validatePhone(phone: string): boolean {
-  const re = /^[\d\s\-+$$$$]{10,}$/
+  const re = /^[6-9]\d{9}$/
   return re.test(phone)
+}
+
+export function normalizeIndianPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "")
+
+  if (digits.length === 10) {
+    return digits
+  }
+
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return digits.slice(1)
+  }
+
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return digits.slice(2)
+  }
+
+  return ""
+}
+
+export function validateIndianMobile(phone: string): boolean {
+  const normalized = normalizeIndianPhone(phone)
+  return validatePhone(normalized)
 }
 
 export function validateMeasurement(measurement: Record<string, any>): {

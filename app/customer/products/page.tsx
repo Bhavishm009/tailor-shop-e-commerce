@@ -22,7 +22,7 @@ interface Product {
 
 export default function ProductsPage() {
   const searchParams = useSearchParams()
-  const initialSearch = searchParams.get("search") ?? ""
+  const initialSearch = searchParams?.get("search") ?? ""
   const [cart, setCart] = useState<Product[]>([])
   const [search, setSearch] = useState(initialSearch)
   const [filter, setFilter] = useState("all")
@@ -82,10 +82,10 @@ export default function ProductsPage() {
   const total = cart.reduce((sum, item) => sum + item.price, 0)
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-7xl">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Ready-Made Collection</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold">Ready-Made Collection</h1>
           <div className="relative">
             <Button variant="outline" onClick={() => setShowCart(!showCart)} className="relative">
               <ShoppingCart className="w-5 h-5" />
@@ -102,7 +102,7 @@ export default function ProductsPage() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             {/* Filters */}
-            <div className="flex gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 md:mb-8">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                 <Input

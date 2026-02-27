@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -9,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { BlogEditor } from "@/components/blog-editor"
+import { FeedbackToasts } from "@/components/admin/feedback-toasts"
+import { Spinner } from "@/components/ui/spinner"
 import { isValidImageFile, uploadFile } from "@/lib/file-upload"
 
 type BlogPost = {
@@ -42,6 +43,8 @@ export function BlogForm({ blogId }: BlogFormProps) {
   const [uploadingOg, setUploadingOg] = useState(false)
   const [coverUploadProgress, setCoverUploadProgress] = useState(0)
   const [ogUploadProgress, setOgUploadProgress] = useState(0)
+  const [pendingCoverPreview, setPendingCoverPreview] = useState("")
+  const [pendingOgPreview, setPendingOgPreview] = useState("")
 
   const [error, setError] = useState("")
 
@@ -162,14 +165,18 @@ export function BlogForm({ blogId }: BlogFormProps) {
 
     setUploadingCover(true)
     setCoverUploadProgress(0)
+    const localPreview = URL.createObjectURL(file)
+    setPendingCoverPreview(localPreview)
     try {
       const uploaded = await uploadFile(file, "/tailorhub/blog/cover", setCoverUploadProgress)
       setCoverImage(uploaded.url)
-      setCoverImageBlurDataUrl(uploaded.blurDataUrl)
+      setCoverImageBlurDataUrl(uploaded.blurDataUrl || "")
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Failed to upload cover image.")
     } finally {
       setUploadingCover(false)
+      if (localPreview) URL.revokeObjectURL(localPreview)
+      setPendingCoverPreview("")
     }
   }
 
@@ -186,14 +193,18 @@ export function BlogForm({ blogId }: BlogFormProps) {
 
     setUploadingOg(true)
     setOgUploadProgress(0)
+    const localPreview = URL.createObjectURL(file)
+    setPendingOgPreview(localPreview)
     try {
       const uploaded = await uploadFile(file, "/tailorhub/blog/og", setOgUploadProgress)
       setOgImage(uploaded.url)
-      setOgImageBlurDataUrl(uploaded.blurDataUrl)
+      setOgImageBlurDataUrl(uploaded.blurDataUrl || "")
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Failed to upload OG image.")
     } finally {
       setUploadingOg(false)
+      if (localPreview) URL.revokeObjectURL(localPreview)
+      setPendingOgPreview("")
     }
   }
 
@@ -212,7 +223,7 @@ export function BlogForm({ blogId }: BlogFormProps) {
         ) : null}
       </div>
 
-      {error ? <Card className="p-4 text-sm text-red-600 border-red-300">{error}</Card> : null}
+      <FeedbackToasts error={error} />
 
       <form onSubmit={onSubmit} className="space-y-6">
         <Card className="p-6 space-y-4">
@@ -248,25 +259,17 @@ export function BlogForm({ blogId }: BlogFormProps) {
               <Progress value={ogUploadProgress} />
             </div>
           ) : null}
-          {coverImage ? (
-            <Image
-              src={coverImage}
+          {pendingCoverPreview || coverImage ? (
+            <img
+              src={pendingCoverPreview || coverImage}
               alt="Cover preview"
-              width={1200}
-              height={630}
-              placeholder={coverImageBlurDataUrl ? "blur" : "empty"}
-              blurDataURL={coverImageBlurDataUrl || undefined}
               className="h-44 w-full rounded-md object-cover"
             />
           ) : null}
-          {ogImage ? (
-            <Image
-              src={ogImage}
+          {pendingOgPreview || ogImage ? (
+            <img
+              src={pendingOgPreview || ogImage}
               alt="OG preview"
-              width={1200}
-              height={630}
-              placeholder={ogImageBlurDataUrl ? "blur" : "empty"}
-              blurDataURL={ogImageBlurDataUrl || undefined}
               className="h-44 w-full rounded-md object-cover"
             />
           ) : null}
@@ -285,11 +288,11 @@ export function BlogForm({ blogId }: BlogFormProps) {
           <Input value={ogDescription} onChange={(e) => setOgDescription(e.target.value)} placeholder="OG description" />
         </Card>
 
-        <div className="flex items-center gap-2">
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Saving..." : isEdit ? "Save Changes" : "Create Blog"}
+        <div className="flex items-center justify-center gap-3 mx-auto pt-2">
+          <Button type="submit" size="lg" className="min-w-40" disabled={submitting}>
+            {submitting ? <><Spinner className="mr-2" />Saving...</> : isEdit ? "Save Changes" : "Create Blog"}
           </Button>
-          <Button type="button" variant="outline" asChild>
+          <Button type="button" variant="outline" size="lg" className="min-w-32" asChild>
             <Link href="/admin/blogs">Cancel</Link>
           </Button>
         </div>

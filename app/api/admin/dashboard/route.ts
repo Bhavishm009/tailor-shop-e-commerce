@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireRole } from "@/lib/api-auth"
 import { db } from "@/lib/db"
+import { runBirthdayNotificationsIfDue } from "@/lib/birthday-notifications"
 
 type DashboardPoint = {
   month: string
@@ -32,12 +33,17 @@ function monthLabelFromKey(key: string) {
 
 export async function GET() {
   try {
+    await runBirthdayNotificationsIfDue()
+
     const { response } = await requireRole("ADMIN")
     if (response) return response
 
     const [
       orders,
       stitchingOrders,
+      assignments,
+      payoutPayments,
+      advancePayments,
       users,
       totalUsers,
       totalProducts,
@@ -50,6 +56,32 @@ export async function GET() {
       }),
       db.stitchingOrder.findMany({
         select: { createdAt: true, price: true, status: true },
+      }),
+      db.assignment.findMany({
+        select: { id: true, payoutAmount: true },
+      }),
+      db.payment.findMany({
+        where: {
+          status: "COMPLETED",
+          notes: {
+            startsWith: "TAILOR_PAYOUT:",
+          },
+        },
+        select: {
+          amount: true,
+          notes: true,
+        },
+      }),
+      db.payment.findMany({
+        where: {
+          status: "COMPLETED",
+          notes: {
+            startsWith: "TAILOR_ADVANCE:",
+          },
+        },
+        select: {
+          amount: true,
+        },
       }),
       db.user.findMany({
         select: { createdAt: true },
@@ -137,6 +169,21 @@ export async function GET() {
       { name: "Cancelled", value: statusCounts.Cancelled, fill: "#ef4444" },
     ]
 
+    const paidByAssignment = new Map<string, number>()
+    for (const payment of payoutPayments) {
+      const note = payment.notes || ""
+      if (!note.startsWith("TAILOR_PAYOUT:")) continue
+      const assignmentId = note.slice("TAILOR_PAYOUT:".length)
+      if (!assignmentId) continue
+      paidByAssignment.set(assignmentId, (paidByAssignment.get(assignmentId) || 0) + payment.amount)
+    }
+    const pendingTailorPayoutRaw = assignments.reduce((sum, assignment) => {
+      const paid = paidByAssignment.get(assignment.id) || 0
+      return sum + Math.max(0, assignment.payoutAmount - paid)
+    }, 0)
+    const totalAdvancePaid = advancePayments.reduce((sum, payment) => sum + payment.amount, 0)
+    const pendingTailorPayout = Math.max(0, pendingTailorPayoutRaw - totalAdvancePaid)
+
     return NextResponse.json({
       metrics: {
         totalRevenue,
@@ -149,6 +196,7 @@ export async function GET() {
       },
       summary: {
         activeTailors,
+        pendingTailorPayout,
         activeProducts: totalProducts,
         publishedBlogs: totalBlogs,
         approvedReviews: totalReviews,

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -10,7 +11,7 @@ import Link from "next/link"
 type ReadyMadeOrder = {
   id: string
   orderNumber: string
-  status: "PENDING" | "ASSIGNED" | "COMPLETED" | "DELIVERED" | "CANCELLED"
+  status: "PENDING" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "OUT_FOR_DELIVERY" | "DELIVERED" | "CANCELLED"
   totalAmount: number
   createdAt: string
   updatedAt: string
@@ -20,7 +21,7 @@ type CustomOrder = {
   id: string
   serviceKey?: string | null
   stitchingService: string
-  status: "PENDING" | "ASSIGNED" | "STITCHING" | "COMPLETED" | "DELIVERED" | "CANCELLED"
+  status: "PENDING" | "ASSIGNED" | "STITCHING" | "QC" | "COMPLETED" | "DELIVERED" | "CANCELLED"
   price: number
   createdAt: string
   updatedAt: string
@@ -35,7 +36,18 @@ type UnifiedOrder = {
   id: string
   type: "custom" | "ready-made"
   orderNumber: string
-  status: "PENDING" | "ASSIGNED" | "STITCHING" | "COMPLETED" | "DELIVERED" | "CANCELLED"
+  status:
+    | "PENDING"
+    | "CONFIRMED"
+    | "PROCESSING"
+    | "SHIPPED"
+    | "OUT_FOR_DELIVERY"
+    | "ASSIGNED"
+    | "STITCHING"
+    | "QC"
+    | "COMPLETED"
+    | "DELIVERED"
+    | "CANCELLED"
   totalAmount: number
   createdAt: string
   updatedAt: string
@@ -44,14 +56,20 @@ type UnifiedOrder = {
 }
 
 export default function OrdersPage() {
+  const router = useRouter()
   const [readyMadeOrders, setReadyMadeOrders] = useState<ReadyMadeOrder[]>([])
   const [customOrders, setCustomOrders] = useState<CustomOrder[]>([])
   const [loading, setLoading] = useState(true)
 
   const statusColors: Record<string, string> = {
     PENDING: "bg-yellow-100 text-yellow-800",
+    CONFIRMED: "bg-blue-100 text-blue-800",
+    PROCESSING: "bg-indigo-100 text-indigo-800",
+    SHIPPED: "bg-purple-100 text-purple-800",
+    OUT_FOR_DELIVERY: "bg-orange-100 text-orange-800",
     ASSIGNED: "bg-blue-100 text-blue-800",
     STITCHING: "bg-purple-100 text-purple-800",
+    QC: "bg-indigo-100 text-indigo-800",
     COMPLETED: "bg-green-100 text-green-800",
     DELIVERED: "bg-gray-100 text-gray-800",
     CANCELLED: "bg-red-100 text-red-800",
@@ -59,8 +77,13 @@ export default function OrdersPage() {
 
   const statusLabels: Record<string, string> = {
     PENDING: "Pending",
+    CONFIRMED: "Confirmed",
+    PROCESSING: "Processing",
+    SHIPPED: "Shipped",
+    OUT_FOR_DELIVERY: "Out for Delivery",
     ASSIGNED: "Assigned to Tailor",
     STITCHING: "Stitching in Progress",
+    QC: "Quality Check",
     COMPLETED: "Completed",
     DELIVERED: "Delivered",
     CANCELLED: "Cancelled",
@@ -121,9 +144,9 @@ export default function OrdersPage() {
   const activeOrders = allOrders.filter((order) => !["DELIVERED", "CANCELLED"].includes(order.status))
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-6xl">
-        <h1 className="text-3xl font-bold mb-8">Orders</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8">Orders</h1>
 
         <Tabs defaultValue="all" className="mb-8">
           <TabsList>
@@ -151,11 +174,17 @@ export default function OrdersPage() {
             ) : (
               <div className="space-y-4">
                 {allOrders.map((order) => (
-                  <Card key={order.id} className="p-6">
-                    <div className="flex items-start justify-between">
+                  <Card
+                    key={order.id}
+                    className="p-4 md:p-6 cursor-pointer hover:bg-muted/30"
+                    onClick={() =>
+                      router.push(order.type === "custom" ? `/customer/orders/custom/${order.id}` : `/customer/orders/${order.id}`)
+                    }
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                       <div>
                         <p className="text-sm text-muted-foreground">Order #{order.orderNumber}</p>
-                        <h3 className="text-lg font-bold">
+                        <h3 className="text-base md:text-lg font-bold">
                           {order.type === "custom" ? "Custom Stitching Order" : "Ready-Made Order"}
                         </h3>
                         <p className="text-sm text-muted-foreground mt-1">
@@ -165,9 +194,9 @@ export default function OrdersPage() {
                           <p className="text-sm mt-2">Tailor: <span className="font-medium">{order.tailorName || "Waiting for assignment"}</span></p>
                         ) : null}
                       </div>
-                      <div className="text-right">
+                      <div className="sm:text-right flex sm:flex-col items-center sm:items-end gap-2 sm:gap-0">
                         <Badge className={statusColors[order.status]}>{order.progressLabel}</Badge>
-                        <p className="text-xl font-bold mt-2">Rs. {order.totalAmount.toFixed(2)}</p>
+                        <p className="text-lg md:text-xl font-bold sm:mt-2">Rs. {order.totalAmount.toFixed(2)}</p>
                       </div>
                     </div>
                   </Card>
@@ -187,8 +216,12 @@ export default function OrdersPage() {
                 </Card>
               ) : (
                 customOrders.map((order) => (
-                  <Card key={order.id} className="p-6">
-                    <div className="flex items-center justify-between">
+                  <Card
+                    key={order.id}
+                    className="p-6 cursor-pointer hover:bg-muted/30"
+                    onClick={() => router.push(`/customer/orders/custom/${order.id}`)}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
                         <p className="font-semibold">{order.stitchingService}</p>
                         <p className="text-sm text-muted-foreground">Tailor: {order.assignment?.tailor?.name || "Waiting for assignment"}</p>
@@ -209,7 +242,11 @@ export default function OrdersPage() {
                 </Card>
               ) : (
                 readyMadeOrders.map((order) => (
-                  <Card key={order.id} className="p-6 flex items-center justify-between">
+                  <Card
+                    key={order.id}
+                    className="p-4 md:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 cursor-pointer hover:bg-muted/30"
+                    onClick={() => router.push(`/customer/orders/${order.id}`)}
+                  >
                     <div>
                       <p className="font-semibold">#{order.orderNumber}</p>
                       <p className="text-sm text-muted-foreground">{new Date(order.createdAt).toLocaleDateString()}</p>
@@ -229,7 +266,13 @@ export default function OrdersPage() {
                 </Card>
               ) : (
                 activeOrders.map((order) => (
-                  <Card key={order.id} className="p-6 flex items-center justify-between">
+                  <Card
+                    key={order.id}
+                    className="p-4 md:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 cursor-pointer hover:bg-muted/30"
+                    onClick={() =>
+                      router.push(order.type === "custom" ? `/customer/orders/custom/${order.id}` : `/customer/orders/${order.id}`)
+                    }
+                  >
                     <div>
                       <p className="font-semibold">#{order.orderNumber}</p>
                       <p className="text-sm text-muted-foreground">{order.type}</p>

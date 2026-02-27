@@ -1,124 +1,365 @@
-"use client"
-
-import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import type { Metadata } from "next"
+import Link from "next/link"
+import { db } from "@/lib/db"
 import { GlobalNavbar } from "@/components/global-navbar"
 import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Search } from "lucide-react"
-import { useCart } from "@/components/cart-provider"
+import { ProductsMobileFilter } from "@/components/products-mobile-filter"
+import { ProductListingCard } from "@/components/product-listing-card"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
-type Product = {
-  id: string
-  name: string
-  description?: string | null
-  price: number
-  image?: string | null
-  category: string
-  material?: string | null
-  stock: number
-  isActive: boolean
+type ProductsPageProps = {
+  searchParams: Promise<{
+    q?: string
+    category?: string
+    material?: string
+    clothType?: string
+    color?: string
+    size?: string
+    min?: string
+    max?: string
+    sort?: string
+    page?: string
+  }>
 }
 
-export default function PublicProductsPage() {
-  const searchParams = useSearchParams()
-  const query = (searchParams.get("q") ?? "").toLowerCase()
-  const { addItem } = useCart()
+const PAGE_SIZE = 12
 
-  const [search, setSearch] = useState(searchParams.get("q") ?? "")
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
+type ParsedProductsParams = {
+  q: string
+  category: string
+  material: string
+  clothType: string
+  color: string
+  size: string
+  min: number | undefined
+  max: number | undefined
+  sort: string
+  page: number
+}
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch("/api/products", { cache: "no-store" })
-        if (!response.ok) {
-          setProducts([])
-          return
+function toPositiveNumber(value: string | undefined) {
+  if (!value) return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
+}
+
+const parseParams = (
+  params: Awaited<ProductsPageProps["searchParams"]>,
+): ParsedProductsParams => ({
+  q: (params.q || "").trim(),
+  category: (params.category || "").trim(),
+  material: (params.material || "").trim(),
+  clothType: (params.clothType || "").trim(),
+  color: (params.color || "").trim(),
+  size: (params.size || "").trim(),
+  min: toPositiveNumber(params.min),
+  max: toPositiveNumber(params.max),
+  sort: params.sort || "newest",
+  page: Math.max(1, Number(params.page || "1") || 1),
+})
+
+function createProductsQuery(
+  params: ParsedProductsParams,
+  overrides?: Partial<Record<keyof ParsedProductsParams, string | number | undefined>>,
+) {
+  const query = new URLSearchParams()
+  const merged = {
+    q: params.q,
+    category: params.category,
+    material: params.material,
+    clothType: params.clothType,
+    color: params.color,
+    size: params.size,
+    min: params.min?.toString() || "",
+    max: params.max?.toString() || "",
+    sort: params.sort,
+    page: params.page.toString(),
+    ...(overrides || {}),
+  }
+
+  for (const [key, value] of Object.entries(merged)) {
+    if (!value) continue
+    if (key === "page" && value === "1") continue
+    if (key === "sort" && value === "newest") continue
+    query.set(key, String(value))
+  }
+
+  return query
+}
+
+function getPaginationSlots(currentPage: number, totalPages: number): Array<number | "ellipsis"> {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  const slots: Array<number | "ellipsis"> = [1]
+  const start = Math.max(2, currentPage - 1)
+  const end = Math.min(totalPages - 1, currentPage + 1)
+
+  if (start > 2) slots.push("ellipsis")
+  for (let page = start; page <= end; page += 1) {
+    slots.push(page)
+  }
+  if (end < totalPages - 1) slots.push("ellipsis")
+  slots.push(totalPages)
+
+  return slots
+}
+
+export async function generateMetadata({ searchParams }: ProductsPageProps): Promise<Metadata> {
+  const parsed = parseParams(await searchParams)
+  const tags = [parsed.category, parsed.material, parsed.clothType, parsed.color, parsed.size].filter(Boolean)
+  const titlePrefix = parsed.q ? `Search "${parsed.q}"` : tags.length > 0 ? tags.join(" | ") : "Products"
+  const query = createProductsQuery(parsed)
+  const canonicalPath = `/products${query.size > 0 ? `?${query.toString()}` : ""}`
+  const description = parsed.q
+    ? `Browse TailorHub products for "${parsed.q}" with ready-made clothing filters and pricing options.`
+    : `Shop TailorHub products${tags.length > 0 ? ` in ${tags.join(", ")}` : ""} with filterable categories, colors, sizes, and materials.`
+
+  return {
+    title: `${titlePrefix} | TailorHub`,
+    description,
+    keywords: ["tailorhub", "ready-made clothing", "fashion", "online shopping", ...tags, parsed.q].filter(Boolean),
+    alternates: {
+      canonical: canonicalPath,
+    },
+    openGraph: {
+      title: `${titlePrefix} | TailorHub`,
+      description,
+      url: canonicalPath,
+      type: "website",
+    },
+  }
+}
+
+export default async function PublicProductsPage({ searchParams }: ProductsPageProps) {
+  const parsed = parseParams(await searchParams)
+  const { q, category, material, clothType, color, size, min, max, page, sort } = parsed
+
+  const where = {
+    isActive: true,
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { description: { contains: q, mode: "insensitive" as const } },
+            { category: { contains: q, mode: "insensitive" as const } },
+            { material: { contains: q, mode: "insensitive" as const } },
+            { clothType: { contains: q, mode: "insensitive" as const } },
+          ],
         }
-        const data = (await response.json()) as Product[]
-        setProducts(data.filter((product) => product.isActive))
-      } catch {
-        setProducts([])
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchProducts()
-  }, [])
+      : {}),
+    ...(category ? { category } : {}),
+    ...(material ? { material } : {}),
+    ...(clothType ? { clothType } : {}),
+    ...(color ? { colors: { array_contains: [color] } } : {}),
+    ...(size ? { size: { contains: size, mode: "insensitive" as const } } : {}),
+    ...(min !== undefined || max !== undefined
+      ? {
+          price: {
+            ...(min !== undefined ? { gte: min } : {}),
+            ...(max !== undefined ? { lte: max } : {}),
+          },
+        }
+      : {}),
+  }
 
-  useEffect(() => {
-    setSearch(searchParams.get("q") ?? "")
-  }, [searchParams])
+  const orderBy =
+    sort === "price_asc"
+      ? ({ price: "asc" } as const)
+      : sort === "price_desc"
+        ? ({ price: "desc" } as const)
+        : sort === "name_asc"
+          ? ({ name: "asc" } as const)
+          : ({ createdAt: "desc" } as const)
 
-  const filteredProducts = useMemo(() => {
-    if (!query) return products
-    return products.filter((product) => {
-      return (
-        product.name.toLowerCase().includes(query) ||
-        (product.description?.toLowerCase().includes(query) ?? false) ||
-        product.category.toLowerCase().includes(query) ||
-        (product.material?.toLowerCase().includes(query) ?? false)
-      )
-    })
-  }, [query, products])
+  const [total, masters] = await Promise.all([
+    db.product.count({ where }),
+    db.productMaster.findMany({
+      where: { isActive: true },
+      orderBy: [{ type: "asc" }, { name: "asc" }],
+    }),
+  ])
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const products = await db.product.findMany({
+    where,
+    orderBy,
+    skip: (safePage - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+  })
+
+  const categories = masters.filter((item) => item.type === "CATEGORY").map((item) => item.name)
+  const materials = masters.filter((item) => item.type === "MATERIAL").map((item) => item.name)
+  const clothTypes = masters.filter((item) => item.type === "CLOTH_TYPE").map((item) => item.name)
+  const sizes = masters.filter((item) => item.type === "SIZE").map((item) => item.name)
+  const colors = masters.filter((item) => item.type === "COLOR").map((item) => item.name)
+  const paginationSlots = getPaginationSlots(safePage, totalPages)
+
+  const buildHref = (next: Partial<Record<string, string>>) => {
+    const query = createProductsQuery(parsed, { page: safePage, ...next })
+    return `/products${query.toString() ? `?${query}` : ""}`
+  }
 
   return (
     <main className="min-h-screen bg-background">
       <GlobalNavbar />
-      <section className="max-w-7xl mx-auto px-4 py-10 space-y-8">
-        <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-          <h1 className="text-3xl font-bold">Shop Products</h1>
-          <form action="/products" className="w-full md:w-[420px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-              <Input name="q" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" placeholder="Search products..." />
-            </div>
-          </form>
+      <section className="max-w-7xl mx-auto px-4 py-10 space-y-6">
+        <div className="space-y-2">
+          <h1 className="text-2xl md:text-4xl font-bold">Clothing Store</h1>
+          <p className="text-muted-foreground">Find outfits by cloth type, color, category, size, and budget.</p>
         </div>
 
-        {loading ? (
-          <Card className="p-8 text-muted-foreground">Loading products...</Card>
-        ) : filteredProducts.length === 0 ? (
-          <Card className="p-8 text-muted-foreground">No products found.</Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredProducts.map((product) => (
-              <Card key={product.id} className="p-5 space-y-4">
-                {product.image ? (
-                  <img src={product.image} alt={product.name} className="h-40 w-full rounded-md object-cover" />
-                ) : (
-                  <div className="bg-muted h-40 rounded-md" />
-                )}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 className="font-semibold text-lg">{product.name}</h2>
-                    <Badge variant="outline">{product.category}</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{product.description || "No description available."}</p>
-                  <p className="text-xl font-bold">Rs. {product.price}</p>
-                  <Button
-                    className="w-full"
-                    onClick={() =>
-                      addItem({
-                        id: product.id,
-                        name: product.name,
-                        price: product.price,
-                        image: product.image,
-                      })
-                    }
-                    disabled={product.stock <= 0}
-                  >
-                    {product.stock > 0 ? "Add To Cart" : "Out Of Stock"}
-                  </Button>
+        <ProductsMobileFilter
+          q={q}
+          category={category}
+          material={material}
+          clothType={clothType}
+          color={color}
+          size={size}
+          min={min?.toString() || ""}
+          max={max?.toString() || ""}
+          sort={sort}
+          categories={categories}
+          materials={materials}
+          clothTypes={clothTypes}
+          sizes={sizes}
+          colors={colors}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+          <aside className="hidden lg:block">
+            <Card className="p-4 sticky top-24 space-y-3">
+              <h2 className="font-semibold">Filters</h2>
+              <form action="/products" className="space-y-3">
+                <input name="q" defaultValue={q} placeholder="Search" className="h-10 w-full rounded-md border bg-background px-3" />
+                <select name="category" defaultValue={category} className="h-10 w-full rounded-md border bg-background px-3">
+                  <option value="">All Categories</option>
+                  {categories.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <select name="material" defaultValue={material} className="h-10 w-full rounded-md border bg-background px-3">
+                  <option value="">All Materials</option>
+                  {materials.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <select name="clothType" defaultValue={clothType} className="h-10 w-full rounded-md border bg-background px-3">
+                  <option value="">All Cloth Types</option>
+                  {clothTypes.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <select name="color" defaultValue={color} className="h-10 w-full rounded-md border bg-background px-3">
+                  <option value="">All Colors</option>
+                  {colors.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <select name="size" defaultValue={size} className="h-10 w-full rounded-md border bg-background px-3">
+                  <option value="">All Sizes</option>
+                  {sizes.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <input name="min" type="number" min="0" defaultValue={min?.toString() || ""} placeholder="Min" className="h-10 rounded-md border bg-background px-3" />
+                  <input name="max" type="number" min="0" defaultValue={max?.toString() || ""} placeholder="Max" className="h-10 rounded-md border bg-background px-3" />
                 </div>
-              </Card>
-            ))}
+                <select name="sort" defaultValue={sort} className="h-10 w-full rounded-md border bg-background px-3">
+                  <option value="newest">Newest</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                  <option value="name_asc">Name: A-Z</option>
+                </select>
+                <button type="submit" className="h-10 w-full rounded-md bg-primary text-primary-foreground">
+                  Apply Filters
+                </button>
+              </form>
+            </Card>
+          </aside>
+
+          <div className="space-y-6">
+            {products.length === 0 ? (
+              <Card className="p-8 text-muted-foreground">No products found.</Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
+                {products.map((product) => {
+                  return (
+                    <ProductListingCard
+                      key={product.id}
+                      id={product.id}
+                      name={product.name}
+                      description={product.description}
+                      price={product.price}
+                      category={product.category}
+                      clothType={product.clothType}
+                      material={product.material}
+                      stock={product.stock}
+                      image={product.image}
+                      images={product.images}
+                      videos={product.videos}
+                    />
+                  )
+                })}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing page {safePage} of {totalPages} ({total} items)
+              </p>
+            </div>
+
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href={buildHref({ page: String(Math.max(1, safePage - 1)) })}
+                    className={safePage <= 1 ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+                {paginationSlots.map((slot, index) => (
+                  <PaginationItem key={`${slot}-${index}`}>
+                    {slot === "ellipsis" ? (
+                      <PaginationEllipsis />
+                    ) : (
+                      <PaginationLink href={buildHref({ page: String(slot) })} isActive={slot === safePage}>
+                        {slot}
+                      </PaginationLink>
+                    )}
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    href={buildHref({ page: String(Math.min(totalPages, safePage + 1)) })}
+                    className={safePage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
-        )}
+        </div>
       </section>
     </main>
   )

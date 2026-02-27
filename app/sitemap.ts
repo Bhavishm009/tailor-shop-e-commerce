@@ -29,5 +29,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }))
 
-  return [...staticRoutes, ...blogRoutes]
+  const productRoutes: MetadataRoute.Sitemap = (
+    await db.product.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    })
+  ).map((product) => ({
+    url: `${baseUrl}/products/${product.id}`,
+    lastModified: product.updatedAt,
+    changeFrequency: "daily",
+    priority: 0.85,
+  }))
+
+  return [...staticRoutes, ...blogRoutes, ...productRoutes]
 }

@@ -1,195 +1,550 @@
-"use client"
-
+import type { Metadata } from "next"
+import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { db } from "@/lib/db"
 import { GlobalNavbar } from "@/components/global-navbar"
 import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search } from "lucide-react"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
-type Product = {
-  id: string
-  name: string
-  description?: string | null
-  price: number
-  category: string
-  material?: string | null
-  isActive: boolean
+type SearchParams = {
+  q?: string
+  type?: "all" | "products" | "blogs"
+  page?: string
 }
 
-type BlogPost = {
-  id: string
-  title: string
-  excerpt: string
-  contentHtml: string
-  slug: string
-  category: string
-  coverImage?: string
-  createdAt: string
+type SearchPageProps = {
+  searchParams: Promise<SearchParams>
 }
 
-export default function SearchPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const initialQuery = searchParams.get("q") ?? ""
+const PAGE_SIZE = 9
 
-  const [query, setQuery] = useState(initialQuery)
-  const [products, setProducts] = useState<Product[]>([])
-  const [blogs, setBlogs] = useState<BlogPost[]>([])
-  const [loading, setLoading] = useState(true)
+const toStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean)
+}
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch("/api/products", { cache: "no-store" })
-        if (!response.ok) {
-          setProducts([])
-          return
-        }
-        const data = (await response.json()) as Product[]
-        setProducts(data.filter((product) => product.isActive))
-      } catch {
-        setProducts([])
-      }
+function buildSearchQuery(q: string, type: string, page: number) {
+  const query = new URLSearchParams()
+  if (q) query.set("q", q)
+  if (type && type !== "all") query.set("type", type)
+  if (page > 1) query.set("page", String(page))
+  return query
+}
+
+function getPaginationSlots(currentPage: number, totalPages: number): Array<number | "ellipsis"> {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1)
+
+  const slots: Array<number | "ellipsis"> = [1]
+  const start = Math.max(2, currentPage - 1)
+  const end = Math.min(totalPages - 1, currentPage + 1)
+
+  if (start > 2) slots.push("ellipsis")
+  for (let page = start; page <= end; page += 1) slots.push(page)
+  if (end < totalPages - 1) slots.push("ellipsis")
+  slots.push(totalPages)
+
+  return slots
+}
+
+export async function generateMetadata({ searchParams }: SearchPageProps): Promise<Metadata> {
+  const params = await searchParams
+  const q = (params.q || "").trim()
+  const type = params.type === "products" || params.type === "blogs" ? params.type : "all"
+  const page = Math.max(1, Number(params.page || "1") || 1)
+  const query = buildSearchQuery(q, type, page)
+  const canonicalPath = `/search${query.toString() ? `?${query}` : ""}`
+
+  if (!q) {
+    return {
+      title: "Search Products & Blogs | TailorHub",
+      description: "Search TailorHub products and blog guides with shareable URLs and category filters.",
+      alternates: { canonical: "/search" },
+      openGraph: {
+        title: "Search Products & Blogs | TailorHub",
+        description: "Search TailorHub products and blog guides.",
+        url: "/search",
+        type: "website",
+      },
     }
-
-    const fetchBlogs = async () => {
-      try {
-        const response = await fetch("/api/blogs", { cache: "no-store" })
-        if (!response.ok) {
-          setBlogs([])
-          return
-        }
-        const data = (await response.json()) as BlogPost[]
-        setBlogs(data)
-      } catch {
-        setBlogs([])
-      }
-    }
-
-    Promise.all([fetchProducts(), fetchBlogs()]).finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    setQuery(initialQuery)
-  }, [initialQuery])
-
-  const normalizedQuery = query.trim().toLowerCase()
-
-  const filteredProducts = useMemo(() => {
-    if (!normalizedQuery) return products
-    return products.filter((product) => {
-      return (
-        product.name.toLowerCase().includes(normalizedQuery) ||
-        (product.description?.toLowerCase().includes(normalizedQuery) ?? false) ||
-        product.category.toLowerCase().includes(normalizedQuery) ||
-        (product.material?.toLowerCase().includes(normalizedQuery) ?? false)
-      )
-    })
-  }, [normalizedQuery, products])
-
-  const filteredBlogs = useMemo(() => {
-    if (!normalizedQuery) return blogs
-    return blogs.filter((post) => {
-      return (
-        post.title.toLowerCase().includes(normalizedQuery) ||
-        post.excerpt.toLowerCase().includes(normalizedQuery) ||
-        post.category.toLowerCase().includes(normalizedQuery)
-      )
-    })
-  }, [blogs, normalizedQuery])
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = query.trim()
-    if (!trimmed) {
-      router.push("/search")
-      return
-    }
-    router.push(`/search?q=${encodeURIComponent(trimmed)}`)
   }
 
-  return (
-    <main className="min-h-screen bg-background">
-      <GlobalNavbar />
-      <div className="max-w-7xl mx-auto px-4 py-10 space-y-10">
-        <section className="space-y-4">
-          <h1 className="text-3xl font-bold">Global Search</h1>
-          <form onSubmit={onSubmit} className="flex gap-2 max-w-2xl">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search products and blogs..."
-                className="pl-10"
-              />
-            </div>
-            <Button type="submit" variant="outline">
-              Search
-            </Button>
-          </form>
-          <p className="text-sm text-muted-foreground">
-            Results for <span className="font-medium">{normalizedQuery || "all content"}</span>
-          </p>
-        </section>
+  return {
+    title: `${q} in ${type === "all" ? "Products & Blogs" : type === "products" ? "Products" : "Blogs"} | TailorHub`,
+    description: `Search results for "${q}" on TailorHub ${type === "all" ? "across products and blogs" : `in ${type}`}.`,
+    alternates: { canonical: canonicalPath },
+    openGraph: {
+      title: `${q} | TailorHub Search`,
+      description: `Explore TailorHub search results for "${q}".`,
+      url: canonicalPath,
+      type: "website",
+    },
+  }
+}
 
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Products</h2>
-            <Badge variant="secondary">{filteredProducts.length}</Badge>
+export default async function SearchPage({ searchParams }: SearchPageProps) {
+  const params = await searchParams
+  const q = (params.q || "").trim()
+  const type = params.type === "products" || params.type === "blogs" ? params.type : "all"
+  const page = Math.max(1, Number(params.page || "1") || 1)
+
+  const buildHref = (next: Partial<{ q: string; type: "all" | "products" | "blogs"; page: number }>) => {
+    const query = buildSearchQuery(next.q ?? q, next.type ?? type, next.page ?? page)
+    return `/search${query.toString() ? `?${query}` : ""}`
+  }
+
+  if (!q) {
+    const [latestProducts, latestBlogs] = await Promise.all([
+      db.product.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      }),
+      db.blogPost.findMany({
+        where: { isPublished: true },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      }),
+    ])
+
+    return (
+      <main className="min-h-screen bg-background">
+        <GlobalNavbar />
+        <section className="max-w-7xl mx-auto px-4 py-10 space-y-8">
+          <div className="space-y-3">
+            <h1 className="text-3xl md:text-4xl font-bold">Search TailorHub</h1>
+            <p className="text-muted-foreground">Discover products and tailoring guides from one SEO-friendly search page.</p>
+            <form action="/search" className="flex flex-col sm:flex-row gap-2 max-w-2xl">
+              <input
+                name="q"
+                placeholder="Search products, fabrics, fit guides, blogs..."
+                className="h-11 rounded-md border bg-background px-3 flex-1"
+              />
+              <button type="submit" className="h-11 px-5 rounded-md bg-primary text-primary-foreground">
+                Search
+              </button>
+            </form>
           </div>
-          {loading ? (
-            <Card className="p-6 text-muted-foreground">Loading products...</Card>
-          ) : filteredProducts.length === 0 ? (
-            <Card className="p-6 text-muted-foreground">No matching products found.</Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="p-5 space-y-3">
+              <h2 className="font-semibold">Trending Searches</h2>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "linen shirt",
+                  "wedding sherwani",
+                  "cotton kurta",
+                  "summer outfit",
+                  "tailoring tips",
+                  "fabric care",
+                ].map((term) => (
+                  <Link key={term} href={`/search?q=${encodeURIComponent(term)}`} className="text-xs rounded-full border px-3 py-1 hover:bg-muted">
+                    {term}
+                  </Link>
+                ))}
+              </div>
+            </Card>
+            <Card className="p-5 space-y-3">
+              <h2 className="font-semibold">Quick Navigation</h2>
+              <div className="grid grid-cols-1 gap-2">
+                <Link href="/products" className="text-sm hover:underline text-primary">
+                  Browse all products
+                </Link>
+                <Link href="/blog" className="text-sm hover:underline text-primary">
+                  Read tailoring blogs
+                </Link>
+                <Link href="/custom-stitching" className="text-sm hover:underline text-primary">
+                  Explore custom stitching
+                </Link>
+              </div>
+            </Card>
+            <Card className="p-5 space-y-2">
+              <h2 className="font-semibold">Search Scope</h2>
+              <p className="text-sm text-muted-foreground">Products: name, category, material, and description.</p>
+              <p className="text-sm text-muted-foreground">Blogs: title, category, excerpt, and article content.</p>
+            </Card>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Latest Products</h2>
+              <Link href="/search?type=products" className="text-sm text-primary hover:underline">
+                Search products
+              </Link>
+            </div>
+            {latestProducts.length === 0 ? (
+              <Card className="p-6 text-muted-foreground">No products found.</Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {latestProducts.map((product) => {
+                  const images = Array.from(new Set([product.image, ...toStringArray(product.images)].filter(Boolean) as string[]))
+                  return (
+                    <Card key={product.id} className="p-4 space-y-3">
+                      {images[0] ? (
+                        <Image src={images[0]} alt={product.name} width={960} height={640} className="h-36 w-full rounded-md object-cover" />
+                      ) : (
+                        <div className="h-36 rounded-md bg-muted" />
+                      )}
+                      <div className="space-y-1">
+                        <h3 className="font-semibold line-clamp-1">{product.name}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{product.description || "No description available."}</p>
+                        <p className="text-sm font-semibold">Rs. {product.price.toFixed(2)}</p>
+                      </div>
+                      <Link href={`/products/${product.id}`} className="text-sm text-primary hover:underline">
+                        View product
+                      </Link>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Latest Blogs</h2>
+              <Link href="/search?type=blogs" className="text-sm text-primary hover:underline">
+                Search blogs
+              </Link>
+            </div>
+            {latestBlogs.length === 0 ? (
+              <Card className="p-6 text-muted-foreground">No blog posts found.</Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {latestBlogs.map((post) => (
+                  <Card key={post.id} className="p-4 space-y-2">
+                    <Badge variant="outline" className="w-fit">
+                      {post.category}
+                    </Badge>
+                    <h3 className="font-semibold line-clamp-2">{post.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-3">{post.excerpt}</p>
+                    <Link href={`/blog/${post.slug}`} className="text-sm text-primary hover:underline">
+                      Read article
+                    </Link>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  const productWhere = {
+    isActive: true,
+    OR: [
+      { name: { contains: q, mode: "insensitive" as const } },
+      { description: { contains: q, mode: "insensitive" as const } },
+      { category: { contains: q, mode: "insensitive" as const } },
+      { material: { contains: q, mode: "insensitive" as const } },
+      { clothType: { contains: q, mode: "insensitive" as const } },
+    ],
+  }
+
+  const blogWhere = {
+    isPublished: true,
+    OR: [
+      { title: { contains: q, mode: "insensitive" as const } },
+      { excerpt: { contains: q, mode: "insensitive" as const } },
+      { category: { contains: q, mode: "insensitive" as const } },
+      { contentHtml: { contains: q, mode: "insensitive" as const } },
+    ],
+  }
+
+  if (type === "products") {
+    const total = await db.product.count({ where: productWhere })
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+    const safePage = Math.min(page, totalPages)
+    const products = await db.product.findMany({
+      where: productWhere,
+      orderBy: { createdAt: "desc" },
+      skip: (safePage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    })
+    const slots = getPaginationSlots(safePage, totalPages)
+
+    return (
+      <main className="min-h-screen bg-background">
+        <GlobalNavbar />
+        <section className="max-w-7xl mx-auto px-4 py-10 space-y-6">
+          <div className="space-y-3">
+            <h1 className="text-2xl md:text-3xl font-bold">Search Results</h1>
+            <form action="/search" className="flex flex-col sm:flex-row gap-2 max-w-2xl">
+              <input name="q" defaultValue={q} className="h-11 rounded-md border bg-background px-3 flex-1" />
+              <button type="submit" className="h-11 px-5 rounded-md bg-primary text-primary-foreground">
+                Search
+              </button>
+            </form>
+            <div className="flex flex-wrap gap-2">
+              <Link href={buildHref({ type: "all", page: 1 })} className="text-xs rounded-full border px-3 py-1 hover:bg-muted">
+                All
+              </Link>
+              <Link href={buildHref({ type: "products", page: 1 })} className="text-xs rounded-full border px-3 py-1 bg-primary text-primary-foreground border-primary">
+                Products
+              </Link>
+              <Link href={buildHref({ type: "blogs", page: 1 })} className="text-xs rounded-full border px-3 py-1 hover:bg-muted">
+                Blogs
+              </Link>
+            </div>
+            <p className="text-sm text-muted-foreground">{total} product matches for "{q}".</p>
+          </div>
+
+          {products.length === 0 ? (
+            <Card className="p-8 text-muted-foreground">No matching products found.</Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredProducts.map((product) => (
-                <Card key={product.id} className="p-5 space-y-3">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold">{product.name}</h3>
-                    <p className="text-sm text-muted-foreground">{product.description || "No description available."}</p>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    <p>Category: {product.category}</p>
-                    {product.material ? <p>Material: {product.material}</p> : null}
-                  </div>
-                  <p className="text-lg font-bold">Rs. {product.price}</p>
-                </Card>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {products.map((product) => {
+                const images = Array.from(new Set([product.image, ...toStringArray(product.images)].filter(Boolean) as string[]))
+                return (
+                  <Card key={product.id} className="p-4 space-y-3">
+                    {images[0] ? (
+                      <Image src={images[0]} alt={product.name} width={960} height={640} className="h-40 w-full rounded-md object-cover" />
+                    ) : (
+                      <div className="h-40 rounded-md bg-muted" />
+                    )}
+                    <h2 className="font-semibold line-clamp-1">{product.name}</h2>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{product.description || "No description available."}</p>
+                    <p className="text-sm font-semibold">Rs. {product.price.toFixed(2)}</p>
+                    <Link href={`/products/${product.id}`} className="text-sm text-primary hover:underline">
+                      View product
+                    </Link>
+                  </Card>
+                )
+              })}
             </div>
           )}
-        </section>
 
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Blogs</h2>
-            <Badge variant="secondary">{filteredBlogs.length}</Badge>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href={buildHref({ type: "products", page: Math.max(1, safePage - 1) })}
+                  className={safePage <= 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+              {slots.map((slot, index) => (
+                <PaginationItem key={`${slot}-${index}`}>
+                  {slot === "ellipsis" ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink href={buildHref({ type: "products", page: slot })} isActive={slot === safePage}>
+                      {slot}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext
+                  href={buildHref({ type: "products", page: Math.min(totalPages, safePage + 1) })}
+                  className={safePage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </section>
+      </main>
+    )
+  }
+
+  if (type === "blogs") {
+    const total = await db.blogPost.count({ where: blogWhere })
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+    const safePage = Math.min(page, totalPages)
+    const blogs = await db.blogPost.findMany({
+      where: blogWhere,
+      orderBy: { createdAt: "desc" },
+      skip: (safePage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    })
+    const slots = getPaginationSlots(safePage, totalPages)
+
+    return (
+      <main className="min-h-screen bg-background">
+        <GlobalNavbar />
+        <section className="max-w-7xl mx-auto px-4 py-10 space-y-6">
+          <div className="space-y-3">
+            <h1 className="text-2xl md:text-3xl font-bold">Search Results</h1>
+            <form action="/search" className="flex flex-col sm:flex-row gap-2 max-w-2xl">
+              <input name="q" defaultValue={q} className="h-11 rounded-md border bg-background px-3 flex-1" />
+              <button type="submit" className="h-11 px-5 rounded-md bg-primary text-primary-foreground">
+                Search
+              </button>
+            </form>
+            <div className="flex flex-wrap gap-2">
+              <Link href={buildHref({ type: "all", page: 1 })} className="text-xs rounded-full border px-3 py-1 hover:bg-muted">
+                All
+              </Link>
+              <Link href={buildHref({ type: "products", page: 1 })} className="text-xs rounded-full border px-3 py-1 hover:bg-muted">
+                Products
+              </Link>
+              <Link href={buildHref({ type: "blogs", page: 1 })} className="text-xs rounded-full border px-3 py-1 bg-primary text-primary-foreground border-primary">
+                Blogs
+              </Link>
+            </div>
+            <p className="text-sm text-muted-foreground">{total} blog matches for "{q}".</p>
           </div>
-          {filteredBlogs.length === 0 ? (
-            <Card className="p-6 text-muted-foreground">No matching blog posts found.</Card>
+
+          {blogs.length === 0 ? (
+            <Card className="p-8 text-muted-foreground">No matching blog posts found.</Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredBlogs.map((post) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {blogs.map((post) => (
                 <Card key={post.id} className="p-5 space-y-3">
                   <Badge variant="outline" className="w-fit">
                     {post.category}
                   </Badge>
-                  <h3 className="font-semibold">{post.title}</h3>
-                  <p className="text-sm text-muted-foreground">{post.excerpt}</p>
+                  <h2 className="font-semibold line-clamp-2">{post.title}</h2>
+                  <p className="text-sm text-muted-foreground line-clamp-4">{post.excerpt}</p>
                   <Link href={`/blog/${post.slug}`} className="text-sm text-primary hover:underline">
-                    Read blog
+                    Read article
                   </Link>
                 </Card>
               ))}
             </div>
           )}
+
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href={buildHref({ type: "blogs", page: Math.max(1, safePage - 1) })}
+                  className={safePage <= 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+              {slots.map((slot, index) => (
+                <PaginationItem key={`${slot}-${index}`}>
+                  {slot === "ellipsis" ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink href={buildHref({ type: "blogs", page: slot })} isActive={slot === safePage}>
+                      {slot}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext
+                  href={buildHref({ type: "blogs", page: Math.min(totalPages, safePage + 1) })}
+                  className={safePage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </section>
-      </div>
+      </main>
+    )
+  }
+
+  const [products, blogs, totalProducts, totalBlogs] = await Promise.all([
+    db.product.findMany({
+      where: productWhere,
+      orderBy: { createdAt: "desc" },
+      take: 6,
+    }),
+    db.blogPost.findMany({
+      where: blogWhere,
+      orderBy: { createdAt: "desc" },
+      take: 6,
+    }),
+    db.product.count({ where: productWhere }),
+    db.blogPost.count({ where: blogWhere }),
+  ])
+
+  return (
+    <main className="min-h-screen bg-background">
+      <GlobalNavbar />
+      <section className="max-w-7xl mx-auto px-4 py-10 space-y-8">
+        <div className="space-y-3">
+          <h1 className="text-2xl md:text-3xl font-bold">Search Results for "{q}"</h1>
+          <form action="/search" className="flex flex-col sm:flex-row gap-2 max-w-2xl">
+            <input name="q" defaultValue={q} className="h-11 rounded-md border bg-background px-3 flex-1" />
+            <button type="submit" className="h-11 px-5 rounded-md bg-primary text-primary-foreground">
+              Search
+            </button>
+          </form>
+          <div className="flex flex-wrap gap-2">
+            <Link href={buildHref({ type: "all", page: 1 })} className="text-xs rounded-full border px-3 py-1 bg-primary text-primary-foreground border-primary">
+              All
+            </Link>
+            <Link href={buildHref({ type: "products", page: 1 })} className="text-xs rounded-full border px-3 py-1 hover:bg-muted">
+              Products ({totalProducts})
+            </Link>
+            <Link href={buildHref({ type: "blogs", page: 1 })} className="text-xs rounded-full border px-3 py-1 hover:bg-muted">
+              Blogs ({totalBlogs})
+            </Link>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Products</h2>
+            <Link href={buildHref({ type: "products", page: 1 })} className="text-sm text-primary hover:underline">
+              View all products
+            </Link>
+          </div>
+          {products.length === 0 ? (
+            <Card className="p-6 text-muted-foreground">No product matches found.</Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {products.map((product) => {
+                const images = Array.from(new Set([product.image, ...toStringArray(product.images)].filter(Boolean) as string[]))
+                return (
+                  <Card key={product.id} className="p-4 space-y-3">
+                    {images[0] ? (
+                      <Image src={images[0]} alt={product.name} width={960} height={640} className="h-40 w-full rounded-md object-cover" />
+                    ) : (
+                      <div className="h-40 rounded-md bg-muted" />
+                    )}
+                    <h3 className="font-semibold line-clamp-1">{product.name}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{product.description || "No description available."}</p>
+                    <Link href={`/products/${product.id}`} className="text-sm text-primary hover:underline">
+                      View product
+                    </Link>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Blogs</h2>
+            <Link href={buildHref({ type: "blogs", page: 1 })} className="text-sm text-primary hover:underline">
+              View all blogs
+            </Link>
+          </div>
+          {blogs.length === 0 ? (
+            <Card className="p-6 text-muted-foreground">No blog matches found.</Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {blogs.map((post) => (
+                <Card key={post.id} className="p-5 space-y-3">
+                  <Badge variant="outline" className="w-fit">
+                    {post.category}
+                  </Badge>
+                  <h3 className="font-semibold line-clamp-2">{post.title}</h3>
+                  <p className="text-sm text-muted-foreground line-clamp-3">{post.excerpt}</p>
+                  <Link href={`/blog/${post.slug}`} className="text-sm text-primary hover:underline">
+                    Read article
+                  </Link>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </main>
   )
 }

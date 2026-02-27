@@ -1,12 +1,14 @@
 "use client"
 
-import Image from "next/image"
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import { FeedbackToasts } from "@/components/feedback-toasts"
+import { Spinner } from "@/components/ui/spinner"
 import { isValidImageFile, uploadFile } from "@/lib/file-upload"
+import { validateIndianMobile } from "@/lib/validation"
 
 type AccountProfile = {
   id: string
@@ -33,12 +35,22 @@ type ServiceOption = {
   category: string
 }
 
+type AddressRecord = {
+  id: string
+  street: string
+  city: string
+  state: string
+  postalCode: string
+  country: string
+  isDefault: boolean
+}
+
 export function AccountProfilePage({ title }: AccountProfilePageProps) {
   const [loading, setLoading] = useState(true)
   const [savingProfile, setSavingProfile] = useState(false)
-  const [savingPassword, setSavingPassword] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageUploadProgress, setImageUploadProgress] = useState(0)
+  const [pendingProfilePreview, setPendingProfilePreview] = useState("")
 
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -53,10 +65,16 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([])
   const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([])
   const [yearsExperience, setYearsExperience] = useState("")
-
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passkeys, setPasskeys] = useState<{ id: string; createdAt: string; lastUsedAt?: string | null }[]>([])
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
+  const [addresses, setAddresses] = useState<AddressRecord[]>([])
+  const [addressBusy, setAddressBusy] = useState(false)
+  const [addressStreet, setAddressStreet] = useState("")
+  const [addressCity, setAddressCity] = useState("")
+  const [addressState, setAddressState] = useState("")
+  const [addressPostalCode, setAddressPostalCode] = useState("")
+  const [addressCountry, setAddressCountry] = useState("India")
+  const [addressDefault, setAddressDefault] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -97,6 +115,26 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
   }, [])
 
   useEffect(() => {
+    const loadPasskeys = async () => {
+      const response = await fetch("/api/account/passkeys", { cache: "no-store" })
+      if (!response.ok) return
+      const data = (await response.json()) as { id: string; createdAt: string; lastUsedAt?: string | null }[]
+      setPasskeys(data)
+    }
+    void loadPasskeys()
+  }, [])
+
+  useEffect(() => {
+    const loadAddresses = async () => {
+      const response = await fetch("/api/account/addresses", { cache: "no-store" })
+      if (!response.ok) return
+      const data = (await response.json()) as AddressRecord[]
+      setAddresses(data)
+    }
+    void loadAddresses()
+  }, [])
+
+  useEffect(() => {
     if (role !== "TAILOR") return
     const loadServices = async () => {
       const response = await fetch("/api/stitching-services", { cache: "no-store" })
@@ -122,6 +160,8 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
 
     setUploadingImage(true)
     setImageUploadProgress(0)
+    const localPreview = URL.createObjectURL(file)
+    setPendingProfilePreview(localPreview)
     try {
       const uploaded = await uploadFile(file, "/tailorhub/profiles", setImageUploadProgress)
       setProfileImage(uploaded.url)
@@ -130,6 +170,8 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
       setError(uploadError instanceof Error ? uploadError.message : "Failed to upload profile image.")
     } finally {
       setUploadingImage(false)
+      if (localPreview) URL.revokeObjectURL(localPreview)
+      setPendingProfilePreview("")
     }
   }
 
@@ -169,40 +211,156 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
       }
 
       setSuccess("Profile updated successfully.")
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to update profile.")
     } finally {
       setSavingProfile(false)
     }
   }
 
-  const onChangePassword = async (e: FormEvent) => {
+  const registerPasskey = async () => {
+    setError("")
+    setSuccess("")
+    setPasskeyBusy(true)
+    try {
+      const { startRegistration } = await import("@simplewebauthn/browser")
+      const optionsResponse = await fetch("/api/auth/passkey/register/options", {
+        method: "POST",
+      })
+      const optionsData = (await optionsResponse.json()) as {
+        error?: string
+        challengeId?: string
+        options?: unknown
+      }
+      if (!optionsResponse.ok || !optionsData.options || !optionsData.challengeId) {
+        throw new Error(optionsData.error || "Failed to initialize passkey registration")
+      }
+
+      const registrationResponse = await startRegistration(optionsData.options as any)
+      const verifyResponse = await fetch("/api/auth/passkey/register/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          challengeId: optionsData.challengeId,
+          response: registrationResponse,
+        }),
+      })
+      const verifyData = (await verifyResponse.json()) as { error?: string }
+      if (!verifyResponse.ok) {
+        throw new Error(verifyData.error || "Passkey registration failed")
+      }
+
+      const listResponse = await fetch("/api/account/passkeys", { cache: "no-store" })
+      if (listResponse.ok) {
+        const listData = (await listResponse.json()) as { id: string; createdAt: string; lastUsedAt?: string | null }[]
+        setPasskeys(listData)
+      }
+      setSuccess("Passkey added successfully.")
+    } catch (registerError) {
+      setError(registerError instanceof Error ? registerError.message : "Failed to register passkey.")
+    } finally {
+      setPasskeyBusy(false)
+    }
+  }
+
+  const removePasskey = async (id: string) => {
+    setError("")
+    setSuccess("")
+    setPasskeyBusy(true)
+    try {
+      const response = await fetch("/api/account/passkeys", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      const data = (await response.json()) as { error?: string }
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to remove passkey")
+      }
+
+      setPasskeys((prev) => prev.filter((item) => item.id !== id))
+      setSuccess("Passkey removed.")
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "Failed to remove passkey.")
+    } finally {
+      setPasskeyBusy(false)
+    }
+  }
+
+  const addAddress = async (e: FormEvent) => {
     e.preventDefault()
     setError("")
     setSuccess("")
-    setSavingPassword(true)
+    if (!addressStreet || !addressCity || !addressState || !addressPostalCode || !addressCountry) {
+      setError("All address fields are required.")
+      return
+    }
 
+    setAddressBusy(true)
     try {
-      const response = await fetch("/api/account/password", {
-        method: "PATCH",
+      const response = await fetch("/api/account/addresses", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          currentPassword,
-          newPassword,
-          confirmPassword,
+          street: addressStreet,
+          city: addressCity,
+          state: addressState,
+          postalCode: addressPostalCode,
+          country: addressCountry,
+          isDefault: addressDefault,
         }),
       })
-
+      const data = (await response.json()) as AddressRecord | { error?: string }
       if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: "Failed to update password." }))
-        setError(data.error || "Failed to update password.")
+        setError((data as { error?: string }).error || "Failed to add address.")
         return
       }
-
-      setCurrentPassword("")
-      setNewPassword("")
-      setConfirmPassword("")
-      setSuccess("Password updated successfully.")
+      const added = data as AddressRecord
+      setAddresses((prev) => {
+        const next = addressDefault ? prev.map((item) => ({ ...item, isDefault: false })) : prev
+        return [added, ...next]
+      })
+      setAddressStreet("")
+      setAddressCity("")
+      setAddressState("")
+      setAddressPostalCode("")
+      setAddressCountry("India")
+      setAddressDefault(false)
+      setSuccess("Address added.")
     } finally {
-      setSavingPassword(false)
+      setAddressBusy(false)
+    }
+  }
+
+  const setDefaultAddress = async (id: string) => {
+    setAddressBusy(true)
+    try {
+      const response = await fetch(`/api/account/addresses/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDefault: true }),
+      })
+      if (!response.ok) {
+        setError("Failed to set default address.")
+        return
+      }
+      setAddresses((prev) => prev.map((item) => ({ ...item, isDefault: item.id === id })))
+    } finally {
+      setAddressBusy(false)
+    }
+  }
+
+  const deleteAddress = async (id: string) => {
+    setAddressBusy(true)
+    try {
+      const response = await fetch(`/api/account/addresses/${id}`, { method: "DELETE" })
+      if (!response.ok) {
+        setError("Failed to delete address.")
+        return
+      }
+      setAddresses((prev) => prev.filter((item) => item.id !== id))
+    } finally {
+      setAddressBusy(false)
     }
   }
 
@@ -222,12 +380,13 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
     )
   }
 
+  const isPhoneValid = !phone.trim() || validateIndianMobile(phone)
+
   return (
     <div className="p-8 space-y-8">
       <h1 className="text-3xl font-bold">{title}</h1>
 
-      {error ? <Card className="p-4 text-sm text-red-600 border-red-300">{error}</Card> : null}
-      {success ? <Card className="p-4 text-sm text-green-700 border-green-300">{success}</Card> : null}
+      <FeedbackToasts error={error} success={success} />
 
       <Card className="p-6 space-y-4">
         <h2 className="text-xl font-semibold">Profile Information</h2>
@@ -242,8 +401,8 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
 
           <div className="flex items-center gap-4">
             <div className="size-24 rounded-full border overflow-hidden bg-muted">
-              {profileImage ? (
-                <Image src={profileImage} alt="Profile" width={96} height={96} className="size-24 object-cover" />
+              {pendingProfilePreview || profileImage ? (
+                <img src={pendingProfilePreview || profileImage} alt="Profile" className="size-24 object-cover" />
               ) : (
                 <div className="size-24 flex items-center justify-center text-sm text-muted-foreground">No image</div>
               )}
@@ -265,6 +424,7 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
             <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" required />
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" />
           </div>
+          {!isPhoneValid ? <p className="text-xs text-red-600">Enter a valid Indian mobile number</p> : null}
 
           {role === "TAILOR" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -304,34 +464,83 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
             </div>
           ) : null}
 
-          <Button type="submit" disabled={savingProfile}>
-            {savingProfile ? "Saving..." : "Save Profile"}
+          <Button type="submit" size="lg" className="min-w-40 mx-auto flex" disabled={savingProfile || !isPhoneValid}>
+            {savingProfile ? <><Spinner className="mr-2" />Saving...</> : "Save Profile"}
           </Button>
         </form>
       </Card>
 
+      {role === "CUSTOMER" ? (
+        <Card className="p-6 space-y-4">
+          <h2 className="text-xl font-semibold">Saved Addresses</h2>
+          <form onSubmit={addAddress} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Input value={addressStreet} onChange={(e) => setAddressStreet(e.target.value)} placeholder="Street" />
+            <Input value={addressCity} onChange={(e) => setAddressCity(e.target.value)} placeholder="City" />
+            <Input value={addressState} onChange={(e) => setAddressState(e.target.value)} placeholder="State" />
+            <Input value={addressPostalCode} onChange={(e) => setAddressPostalCode(e.target.value)} placeholder="Postal code" />
+            <Input value={addressCountry} onChange={(e) => setAddressCountry(e.target.value)} placeholder="Country" />
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={addressDefault} onChange={(e) => setAddressDefault(e.target.checked)} />
+              Set as default
+            </label>
+            <div className="md:col-span-2">
+              <Button type="submit" size="lg" className="min-w-36" disabled={addressBusy}>{addressBusy ? <><Spinner className="mr-2" />Saving...</> : "Add Address"}</Button>
+            </div>
+          </form>
+          {addresses.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No addresses saved yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {addresses.map((address) => (
+                <div key={address.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                  <p className="text-sm">
+                    {address.street}, {address.city}, {address.state}, {address.postalCode}, {address.country}
+                    {address.isDefault ? " (Default)" : ""}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {!address.isDefault ? (
+                      <Button type="button" size="sm" variant="outline" onClick={() => void setDefaultAddress(address.id)} disabled={addressBusy}>
+                        Make Default
+                      </Button>
+                    ) : null}
+                    <Button type="button" size="sm" variant="destructive" onClick={() => void deleteAddress(address.id)} disabled={addressBusy}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      ) : null}
+
       <Card className="p-6 space-y-4">
-        <h2 className="text-xl font-semibold">Change Password</h2>
-        <form onSubmit={onChangePassword} className="space-y-3 max-w-xl">
-          <Input
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder="Current password"
-            type="password"
-            required
-          />
-          <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password" type="password" required />
-          <Input
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm new password"
-            type="password"
-            required
-          />
-          <Button type="submit" disabled={savingPassword}>
-            {savingPassword ? "Updating..." : "Update Password"}
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold">Passkeys</h2>
+          <Button type="button" variant="outline" onClick={registerPasskey} disabled={passkeyBusy}>
+            {passkeyBusy ? "Please wait..." : "Add Passkey"}
           </Button>
-        </form>
+        </div>
+        {passkeys.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No passkeys registered yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {passkeys.map((passkey) => (
+              <div key={passkey.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
+                <div className="text-sm">
+                  <p className="font-medium">Passkey</p>
+                  <p className="text-muted-foreground">
+                    Added: {new Date(passkey.createdAt).toLocaleString()}
+                    {passkey.lastUsedAt ? ` | Last used: ${new Date(passkey.lastUsedAt).toLocaleString()}` : ""}
+                  </p>
+                </div>
+                <Button type="button" size="sm" variant="destructive" onClick={() => removePasskey(passkey.id)} disabled={passkeyBusy}>
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   )

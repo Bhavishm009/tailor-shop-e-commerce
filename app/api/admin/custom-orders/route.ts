@@ -3,6 +3,9 @@ import { db } from "@/lib/db"
 import { requireRole } from "@/lib/api-auth"
 import { createOrderNotification } from "@/lib/notifications"
 import { resolveMeasurementType } from "@/lib/measurement-presets"
+import type { ClothType } from "@prisma/client"
+
+const CLOTH_TYPES: ClothType[] = ["COTTON", "SILK", "WOOL", "LINEN", "POLYESTER", "BLEND", "CUSTOM"]
 
 export async function GET() {
   try {
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       customerId?: string
       serviceKey?: string
-      clothType?: string
+      clothType?: ClothType
       notes?: string
       fabricImage?: string | null
       measurementId?: string
@@ -74,6 +77,10 @@ export async function POST(request: Request) {
 
     if (!body.customerId || !body.serviceKey || !body.clothType) {
       return NextResponse.json({ error: "customerId, serviceKey and clothType are required" }, { status: 400 })
+    }
+
+    if (!CLOTH_TYPES.includes(body.clothType)) {
+      return NextResponse.json({ error: "Invalid cloth type" }, { status: 400 })
     }
 
     const customer = await db.user.findFirst({

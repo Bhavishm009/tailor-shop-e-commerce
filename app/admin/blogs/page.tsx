@@ -7,6 +7,9 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { DatePicker } from "@/components/ui/date-picker"
+import { FeedbackToasts } from "@/components/admin/feedback-toasts"
+import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import {
   Table,
   TableBody,
@@ -336,22 +339,21 @@ export default function AdminBlogsPage() {
   return (
     <div className="p-2 md:p-8 space-y-8">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Blog Listing</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Blog Listing</h1>
         <Button asChild>
           <Link href="/admin/blogs/new">Create Blog</Link>
         </Button>
       </div>
 
-      {error ? <Card className="p-4 text-sm text-red-600 border-red-300">{error}</Card> : null}
-      {success ? <Card className="p-4 text-sm text-green-700 border-green-300">{success}</Card> : null}
+      <FeedbackToasts error={error} success={success} />
 
-      <Card className="p-6 space-y-4">
+      <Card className="p-4 md:p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search title/category/excerpt"
-            className="max-w-md"
+            className="w-full sm:max-w-md"
           />
           <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
             Filters
@@ -493,7 +495,7 @@ export default function AdminBlogsPage() {
               <div className="flex items-center gap-2 text-sm">
                 <span>Rows per page</span>
                 <select
-                  className="h-9 rounded-md border bg-background px-2"
+                  className="h-9 rounded-md border bg-background"
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value))
@@ -531,13 +533,19 @@ export default function AdminBlogsPage() {
         )}
       </Card>
 
-      <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Filter Blogs</DialogTitle>
-            <DialogDescription>Apply one or more filters to narrow listing results.</DialogDescription>
-          </DialogHeader>
-
+      <ResponsiveFilterModal
+        open={isFilterModalOpen}
+        onOpenChange={setIsFilterModalOpen}
+        title="Filter Blogs"
+        description="Apply one or more filters to narrow listing results."
+        desktopContentClassName="sm:max-w-2xl"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={clearFilters}>Clear</Button>
+            <Button type="button" onClick={() => setIsFilterModalOpen(false)}>Apply Filters</Button>
+          </>
+        }
+      >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <p className="text-sm font-medium">Status</p>
@@ -589,20 +597,14 @@ export default function AdminBlogsPage() {
             {datePreset === "CUSTOM" ? (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Custom Date Range</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="date" value={customFromDate} onChange={(e) => setCustomFromDate(e.target.value)} />
-                  <Input type="date" value={customToDate} onChange={(e) => setCustomToDate(e.target.value)} />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <DatePicker value={customFromDate} onChange={setCustomFromDate} placeholder="From date" />
+                  <DatePicker value={customToDate} onChange={setCustomToDate} placeholder="To date" />
                 </div>
               </div>
             ) : null}
           </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={clearFilters}>Clear</Button>
-            <Button type="button" onClick={() => setIsFilterModalOpen(false)}>Apply Filters</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </ResponsiveFilterModal>
     </div>
   )
 }

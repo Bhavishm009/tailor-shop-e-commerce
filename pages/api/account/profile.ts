@@ -1,60 +1,73 @@
-import { NextResponse } from "next/server"
+import type { NextApiRequest, NextApiResponse } from "next"
+import { getServerSession } from "next-auth/next"
+import { Prisma } from "@prisma/client"
+import { authOptions } from "@/auth"
 import { db } from "@/lib/db"
-import { requireAuth } from "@/lib/api-auth"
+import { deleteManyImageKitFilesByUrls } from "@/lib/imagekit"
+import { normalizeIndianPhone, validateIndianMobile } from "@/lib/validation"
 
-export async function GET() {
-  try {
-    const { session, response } = await requireAuth()
-    if (response || !session) return response
+type ApiError = { error: string }
 
-    const user = await db.user.findUnique({
-      where: { id: session.user.id },
-      include: {
-        tailorProfile: {
-          select: {
-            bio: true,
-            specializations: true,
-            yearsExperience: true,
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ApiError | Record<string, unknown>>,
+) {
+  if (req.method !== "GET" && req.method !== "PATCH") {
+    res.setHeader("Allow", "GET, PATCH")
+    return res.status(405).json({ error: "Method not allowed" })
+  }
+
+  const session = await getServerSession(req, res, authOptions)
+  if (!session?.user?.id) {
+    return res.status(401).json({ error: "Unauthorized" })
+  }
+
+  if (req.method === "GET") {
+    try {
+      const user = await db.user.findUnique({
+        where: { id: session.user.id },
+        include: {
+          tailorProfile: {
+            select: {
+              bio: true,
+              specializations: true,
+              yearsExperience: true,
+            },
           },
         },
-      },
-    })
+      })
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      if (!user) {
+        return res.status(404).json({ error: "User not found" })
+      }
+
+      return res.status(200).json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        profileImage: user.profileImage,
+        role: user.role,
+        notifyEmail: user.notifyEmail,
+        notifyPush: user.notifyPush,
+        notifyOrders: user.notifyOrders,
+        notifyOffers: user.notifyOffers,
+        tailorProfile: user.tailorProfile
+          ? {
+              bio: user.tailorProfile.bio,
+              specializations: user.tailorProfile.specializations,
+              yearsExperience: user.tailorProfile.yearsExperience,
+            }
+          : null,
+      })
+    } catch (error) {
+      console.error("[pages/account/profile/get]", error)
+      return res.status(500).json({ error: "Failed to fetch profile" })
     }
-
-    return NextResponse.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      profileImage: user.profileImage,
-      role: user.role,
-      notifyEmail: user.notifyEmail,
-      notifyPush: user.notifyPush,
-      notifyOrders: user.notifyOrders,
-      notifyOffers: user.notifyOffers,
-      tailorProfile: user.tailorProfile
-        ? {
-            bio: user.tailorProfile.bio,
-            specializations: user.tailorProfile.specializations,
-            yearsExperience: user.tailorProfile.yearsExperience,
-          }
-        : null,
-    })
-  } catch (error) {
-    console.error("[account/profile/get]", error)
-    return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 })
   }
-}
 
-export async function PATCH(request: Request) {
   try {
-    const { session, response } = await requireAuth()
-    if (response || !session) return response
-
-    const body = (await request.json()) as {
+    const body = (req.body || {}) as {
       name?: string
       email?: string
       phone?: string
@@ -74,18 +87,21 @@ export async function PATCH(request: Request) {
     })
 
     if (!existing) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return res.status(404).json({ error: "User not found" })
     }
 
     const nextName = body.name === undefined ? existing.name : body.name.trim()
     const nextEmail = body.email === undefined ? existing.email : body.email.trim().toLowerCase()
 
     if (!nextName) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 })
+      return res.status(400).json({ error: "Name is required" })
+    }
+    if (!nextEmail) {
+      return res.status(400).json({ error: "Email is required" })
     }
 
-    if (!nextEmail) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 })
+    if (body.phone !== undefined && body.phone?.trim() && !validateIndianMobile(body.phone)) {
+      return res.status(400).json({ error: "Valid Indian mobile number is required" })
     }
 
     const nextYearsExperience =
@@ -101,7 +117,12 @@ export async function PATCH(request: Request) {
         data: {
           name: nextName,
           email: nextEmail,
-          phone: body.phone === undefined ? existing.phone : body.phone?.trim() || null,
+          phone:
+            body.phone === undefined
+              ? existing.phone
+              : body.phone?.trim()
+                ? normalizeIndianPhone(body.phone)
+                : null,
           profileImage: body.profileImage === undefined ? existing.profileImage : body.profileImage || null,
           notifyEmail: typeof body.notifyEmail === "boolean" ? body.notifyEmail : existing.notifyEmail,
           notifyPush: typeof body.notifyPush === "boolean" ? body.notifyPush : existing.notifyPush,
@@ -145,6 +166,10 @@ export async function PATCH(request: Request) {
       return updatedUser
     })
 
+    if (existing.profileImage && existing.profileImage !== updated.profileImage) {
+      await deleteManyImageKitFilesByUrls([existing.profileImage])
+    }
+
     const updatedProfile = await db.user.findUnique({
       where: { id: updated.id },
       include: {
@@ -159,10 +184,10 @@ export async function PATCH(request: Request) {
     })
 
     if (!updatedProfile) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return res.status(404).json({ error: "User not found" })
     }
 
-    return NextResponse.json({
+    return res.status(200).json({
       id: updatedProfile.id,
       name: updatedProfile.name,
       email: updatedProfile.email,
@@ -182,7 +207,10 @@ export async function PATCH(request: Request) {
         : null,
     })
   } catch (error) {
-    console.error("[account/profile/patch]", error)
-    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
+    console.error("[pages/account/profile/patch]", error)
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return res.status(409).json({ error: "Email is already in use by another account." })
+    }
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Failed to update profile" })
   }
 }

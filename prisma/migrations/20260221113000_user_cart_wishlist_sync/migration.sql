@@ -1,0 +1,3 @@
+ALTER TABLE "User"
+ADD COLUMN "cart" JSONB,
+ADD COLUMN "wishlist" JSONB;

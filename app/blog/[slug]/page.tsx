@@ -94,17 +94,44 @@ export default async function BlogDetailPage({ params }: PageProps) {
     articleSection: post.category,
     keywords: parseKeywords(post.seoKeywords).join(", "),
   }
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: baseUrl },
+      { "@type": "ListItem", position: 2, name: "Blog", item: `${baseUrl}/blog` },
+      { "@type": "ListItem", position: 3, name: post.title, item: canonical },
+    ],
+  }
 
   return (
     <main className="min-h-screen bg-background">
       <GlobalNavbar />
       <section className="max-w-3xl mx-auto px-4 py-10">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+        <nav aria-label="Breadcrumb" className="mb-4 text-sm text-muted-foreground">
+          <ol className="flex flex-wrap items-center gap-2">
+            <li>
+              <Link href="/" className="hover:text-primary hover:underline">
+                Home
+              </Link>
+            </li>
+            <li>/</li>
+            <li>
+              <Link href="/blog" className="hover:text-primary hover:underline">
+                Blog
+              </Link>
+            </li>
+            <li>/</li>
+            <li className="text-foreground truncate">{post.title}</li>
+          </ol>
+        </nav>
         <article className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {post.category} - {new Date(post.createdAt).toLocaleDateString()}
           </p>
-          <h1 className="text-4xl font-bold">{post.title}</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">{post.title}</h1>
           <p className="text-muted-foreground">{post.excerpt}</p>
           {post.coverImage ? (
             <Image
@@ -117,7 +144,7 @@ export default async function BlogDetailPage({ params }: PageProps) {
               className="w-full rounded-md object-cover"
             />
           ) : null}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <div className="blog-content" dangerouslySetInnerHTML={{ __html: post.contentHtml }} />
           </Card>
           <Button asChild variant="outline">
