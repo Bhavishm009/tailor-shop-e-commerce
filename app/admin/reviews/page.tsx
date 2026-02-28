@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
   TableBody,
@@ -296,7 +297,12 @@ export default function ReviewsPage() {
         {loading ? (
           <p className="text-muted-foreground">Loading reviews...</p>
         ) : totalRecords === 0 ? (
-          <p className="text-muted-foreground">No reviews found.</p>
+          <Empty className="border-0 p-10">
+            <EmptyHeader>
+              <EmptyTitle>No reviews found</EmptyTitle>
+              <EmptyDescription>Try changing filters or search terms.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <>
             <div className="rounded-md border">

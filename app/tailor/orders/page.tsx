@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { FeedbackToasts } from "@/components/feedback-toasts"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import Link from "next/link"
 import { uploadFile, isValidImageFile } from "@/lib/file-upload"
 
@@ -214,7 +215,14 @@ export default function OrdersPage() {
             {loading ? (
               <Card className="p-8 text-center"><p className="text-muted-foreground">Loading...</p></Card>
             ) : activeOrders.length === 0 ? (
-              <Card className="p-8 text-center"><p className="text-muted-foreground">No active assigned custom orders</p></Card>
+              <Card className="p-0">
+                <Empty className="border-0 p-10">
+                  <EmptyHeader>
+                    <EmptyTitle>No active assigned custom orders</EmptyTitle>
+                    <EmptyDescription>New assignments will appear here once they are assigned to you.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              </Card>
             ) : (
               <div className="space-y-4">{activeOrders.map(renderOrderCard)}</div>
             )}
@@ -222,7 +230,14 @@ export default function OrdersPage() {
 
           <TabsContent value="completed" className="mt-6">
             {completedOrders.length === 0 ? (
-              <Card className="p-8 text-center"><p className="text-muted-foreground">No completed custom orders</p></Card>
+              <Card className="p-0">
+                <Empty className="border-0 p-10">
+                  <EmptyHeader>
+                    <EmptyTitle>No completed custom orders</EmptyTitle>
+                    <EmptyDescription>Completed orders will appear here.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              </Card>
             ) : (
               <div className="space-y-4">{completedOrders.map(renderOrderCard)}</div>
             )}

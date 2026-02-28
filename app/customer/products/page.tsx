@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { ShoppingCart, Search } from "lucide-react"
 
 interface Product {
@@ -146,8 +147,13 @@ export default function ProductsPage() {
                 </Card>
               ))}
               {filteredProducts.length === 0 && (
-                <Card className="p-6 md:col-span-2">
-                  <p className="text-muted-foreground text-center">No products found for your search.</p>
+                <Card className="p-0 md:col-span-2">
+                  <Empty className="border-0 p-10">
+                    <EmptyHeader>
+                      <EmptyTitle>No products found</EmptyTitle>
+                      <EmptyDescription>Try another category or search keyword.</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 </Card>
               )}
             </div>

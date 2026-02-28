@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FeedbackToasts } from "@/components/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Plus, Trash2 } from "lucide-react"
 
 interface Measurement {
@@ -219,8 +220,13 @@ export default function MeasurementsPage() {
             <p className="text-muted-foreground">Loading measurements...</p>
           </Card>
         ) : measurements.length === 0 ? (
-          <Card className="p-8 text-center">
-            <p className="text-muted-foreground">No measurements saved yet</p>
+          <Card className="p-0">
+            <Empty className="border-0 p-10">
+              <EmptyHeader>
+                <EmptyTitle>No measurements saved yet</EmptyTitle>
+                <EmptyDescription>Create your first measurement profile to continue custom stitching.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </Card>
         ) : (
           <div className="grid gap-4">

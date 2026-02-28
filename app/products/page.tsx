@@ -3,6 +3,7 @@ import Link from "next/link"
 import { db } from "@/lib/db"
 import { GlobalNavbar } from "@/components/global-navbar"
 import { Card } from "@/components/ui/card"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { ProductsMobileFilter } from "@/components/products-mobile-filter"
 import { ProductListingCard } from "@/components/product-listing-card"
 import {
@@ -301,7 +302,14 @@ export default async function PublicProductsPage({ searchParams }: ProductsPageP
 
           <div className="space-y-6">
             {products.length === 0 ? (
-              <Card className="p-8 text-muted-foreground">No products found.</Card>
+              <Card className="p-0">
+                <Empty className="border-0 p-10">
+                  <EmptyHeader>
+                    <EmptyTitle>No products found</EmptyTitle>
+                    <EmptyDescription>Try adjusting your filters or search terms.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              </Card>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
                 {products.map((product) => {

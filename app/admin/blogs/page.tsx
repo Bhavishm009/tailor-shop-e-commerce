@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -413,9 +415,18 @@ export default function AdminBlogsPage() {
         )}
 
         {loading ? (
-          <p className="text-muted-foreground">Loading...</p>
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-10 w-full" />
+            ))}
+          </div>
         ) : totalRecords === 0 ? (
-          <p className="text-muted-foreground">No posts found.</p>
+          <Empty className="border-0 p-10">
+            <EmptyHeader>
+              <EmptyTitle>No blog posts found</EmptyTitle>
+              <EmptyDescription>Try changing filters or search terms.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <>
             <div className="rounded-md border">

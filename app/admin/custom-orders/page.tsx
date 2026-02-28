@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
   TableBody,
@@ -334,7 +335,12 @@ export default function CustomOrdersPage() {
         {loading ? (
           <p className="text-muted-foreground">Loading custom orders...</p>
         ) : totalRecords === 0 ? (
-          <p className="text-muted-foreground">No custom orders found.</p>
+          <Empty className="border-0 p-10">
+            <EmptyHeader>
+              <EmptyTitle>No custom orders found</EmptyTitle>
+              <EmptyDescription>Try changing filters or search terms.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <>
             <div className="rounded-md border">

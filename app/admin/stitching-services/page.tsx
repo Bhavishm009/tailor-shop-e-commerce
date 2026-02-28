@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
   TableBody,
@@ -188,7 +189,12 @@ export default function AdminStitchingServicesPage() {
         {loading ? (
           <p className="text-muted-foreground">Loading stitching services...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-muted-foreground">No stitching services found.</p>
+          <Empty className="border-0 p-10">
+            <EmptyHeader>
+              <EmptyTitle>No stitching services found</EmptyTitle>
+              <EmptyDescription>Try changing filters or add a new service.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="rounded-md border">
             <Table>

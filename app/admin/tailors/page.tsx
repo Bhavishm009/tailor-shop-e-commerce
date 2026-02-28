@@ -9,6 +9,7 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import { Spinner } from "@/components/ui/spinner"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
   TableBody,
@@ -410,7 +411,12 @@ export default function TailorsPage() {
         {loading ? (
           <p className="text-muted-foreground">Loading tailors...</p>
         ) : totalRecords === 0 ? (
-          <p className="text-muted-foreground">No tailors found.</p>
+          <Empty className="border-0 p-10">
+            <EmptyHeader>
+              <EmptyTitle>No tailors found</EmptyTitle>
+              <EmptyDescription>Try changing filters or search terms.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <>
             <div className="rounded-md border">

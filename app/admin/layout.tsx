@@ -18,6 +18,7 @@ import {
 import { Menu, BarChart3, Users, Package, Scissors, Settings, Star, FileText, User, LogOut, Bell, Wallet } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 export default function AdminLayout({
   children,
@@ -25,7 +26,9 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const { session, isLoading } = useAuth("ADMIN")
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const isMobile = useIsMobile()
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
 
   if (isLoading || !session) return null
 
@@ -52,15 +55,25 @@ export default function AdminLayout({
     .slice(0, 2)
     .toUpperCase()
 
+  const toggleSidebar = () => {
+    if (isMobile) {
+      setMobileSidebarOpen((prev) => !prev)
+      return
+    }
+    setDesktopSidebarOpen((prev) => !prev)
+  }
+
+  const isSidebarVisible = isMobile ? mobileSidebarOpen : desktopSidebarOpen
+
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       <header className="border-b shrink-0 bg-background">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            <button className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle admin menu">
+            <button onClick={toggleSidebar} aria-label="Toggle admin menu">
               <Menu className="w-6 h-6" />
             </button>
-            <h1 className="text-xl font-bold">Admin Panel</h1>
+            <h1 className="text-xl font-bold">TailorHub</h1>
           </div>
           <div className="flex items-center gap-2">
             <NotificationsDropdown />
@@ -99,7 +112,7 @@ export default function AdminLayout({
                   variant="destructive"
                   onClick={() => {
                     signOut()
-                    setSidebarOpen(false)
+                    setMobileSidebarOpen(false)
                   }}
                 >
                   <LogOut className="w-4 h-4 mr-2" />
@@ -112,21 +125,21 @@ export default function AdminLayout({
       </header>
 
       <div className="flex flex-1 min-h-0">
-        {sidebarOpen ? (
+        {mobileSidebarOpen ? (
           <button
             className="fixed inset-0 bg-black/30 z-40 md:hidden"
-            onClick={() => setSidebarOpen(false)}
+            onClick={() => setMobileSidebarOpen(false)}
             aria-label="Close admin menu"
           />
         ) : null}
 
         <aside
-          className={`w-64 border-r bg-card transition-transform md:translate-x-0 ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          className={`border-r bg-card transition-all duration-200 md:translate-x-0 ${
+            isSidebarVisible ? "w-64 translate-x-0" : "w-0 -translate-x-full md:translate-x-0"
           } fixed md:static z-50 md:z-auto h-full md:h-auto overflow-y-auto`}
         >
-          <div className="p-6">
-            <h2 className="text-2xl font-bold mb-8">TailorHub</h2>
+          <div className={`p-6 ${isSidebarVisible ? "block" : "hidden"}`}>
+            <h2 className="text-2xl font-bold mb-8"></h2>
             <nav className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon
@@ -135,7 +148,7 @@ export default function AdminLayout({
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3"
-                      onClick={() => setSidebarOpen(false)}
+                      onClick={() => setMobileSidebarOpen(false)}
                     >
                       <Icon className="w-5 h-5" />
                       <span>{item.label}</span>

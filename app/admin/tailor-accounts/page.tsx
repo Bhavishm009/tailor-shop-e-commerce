@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Dialog,
   DialogContent,
@@ -200,7 +201,16 @@ export default function AdminTailorAccountsPage() {
       <h1 className="text-2xl md:text-3xl font-bold">Tailor Accounts</h1>
       <FeedbackToasts error={error} success={success} />
       {loading ? <Card className="p-4 text-muted-foreground">Loading...</Card> : null}
-      {!loading && !data ? <Card className="p-4 text-muted-foreground">No tailor accounts found.</Card> : null}
+      {!loading && !data ? (
+        <Card className="p-0">
+          <Empty className="border-0 p-10">
+            <EmptyHeader>
+              <EmptyTitle>No tailor accounts found</EmptyTitle>
+              <EmptyDescription>Once assignments are created, payout accounts will appear here.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </Card>
+      ) : null}
 
       {data ? (
         <>
