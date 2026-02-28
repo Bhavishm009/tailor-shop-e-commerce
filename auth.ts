@@ -8,8 +8,10 @@ import { db } from "@/lib/db"
 import { verifyAndConsumeLoginOtp } from "@/lib/otp-store"
 import { generateSystemPasswordHash } from "@/lib/auth-utils"
 import { consumePasskeyLoginToken } from "@/lib/passkey-login-store"
+import { getAuthSecret } from "@/lib/auth-secret"
 
 export const authOptions: NextAuthOptions = {
+  secret: getAuthSecret() || undefined,
   pages: {
     signIn: "/login",
     error: "/login",

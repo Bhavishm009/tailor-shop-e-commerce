@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 export default function CustomStitchingPage() {
-  const { data: session, status } = useSession()
+  const { data: session } = useSession()
   const role = session?.user?.role
 
   const bookingHref = useMemo(() => {
@@ -61,7 +61,7 @@ export default function CustomStitchingPage() {
               : "You can start the booking flow now. If you are not signed in, you will be asked to log in first."}
           </p>
           <div className="flex gap-3">
-            <Button asChild disabled={status === "loading"}>
+            <Button asChild>
               <Link href={bookingHref}>{bookingLabel}</Link>
             </Button>
             {!session?.user ? (
