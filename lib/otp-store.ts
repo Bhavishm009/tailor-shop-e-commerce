@@ -22,11 +22,29 @@ async function ensureOtpTable() {
     CREATE TABLE IF NOT EXISTS login_otps (
       email TEXT PRIMARY KEY,
       code TEXT NOT NULL,
-      expires_at TIMESTAMP(3) NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
       attempts_left INTEGER NOT NULL DEFAULT 5,
       created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
+  `)
+
+  // Migrate legacy column type safely in existing environments where expires_at was TIMESTAMP.
+  await db.$executeRaw(Prisma.sql`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'login_otps'
+          AND column_name = 'expires_at'
+          AND data_type = 'timestamp without time zone'
+      ) THEN
+        ALTER TABLE login_otps
+        ALTER COLUMN expires_at TYPE TIMESTAMPTZ
+        USING expires_at AT TIME ZONE 'UTC';
+      END IF;
+    END $$;
   `)
 }
 

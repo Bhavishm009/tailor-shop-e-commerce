@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Providers } from "@/components/providers"
@@ -16,7 +16,6 @@ export const metadata: Metadata = {
   description: "Expert tailoring services and premium ready-made garments",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   generator: "v0.app",
-  themeColor: "#6d28d9",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -39,6 +38,10 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-icon.png",
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: "#6d28d9",
 }
 
 export default function RootLayout({
