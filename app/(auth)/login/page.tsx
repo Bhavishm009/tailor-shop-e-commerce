@@ -5,7 +5,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { signIn } from "next-auth/react"
+import { signIn, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,7 @@ import { validateEmail } from "@/lib/validation"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { data: session, status } = useSession()
   const [email, setEmail] = useState("")
   const [otp, setOtp] = useState("")
   const [otpRequested, setOtpRequested] = useState(false)
@@ -44,6 +45,27 @@ export default function LoginPage() {
   const isEmailValid = validateEmail(email)
   const canRequestOtp = isEmailValid && !loading
   const canVerifyOtp = isEmailValid && otp.trim().length === 6 && !loading
+
+  useEffect(() => {
+    if (status !== "authenticated" || !session?.user?.role) return
+    router.replace(getDashboardByRole(session.user.role))
+  }, [router, session?.user?.role, status])
+
+  const redirectToRoleDashboard = async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" })
+      const latestSession = (await sessionResponse.json()) as { user?: { role?: string } }
+      if (latestSession?.user?.role) {
+        router.replace(getDashboardByRole(latestSession.user.role))
+        router.refresh()
+        return
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)))
+    }
+
+    router.replace("/customer/dashboard")
+    router.refresh()
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,12 +94,7 @@ export default function LoginPage() {
           throw new Error("Invalid OTP or expired OTP")
         }
 
-        const sessionResponse = await fetch("/api/auth/session")
-        const session = await sessionResponse.json()
-        const targetPath = getDashboardByRole(session?.user?.role)
-
-        router.push(targetPath)
-        router.refresh()
+        await redirectToRoleDashboard()
         return
       }
 
@@ -160,11 +177,7 @@ export default function LoginPage() {
         throw new Error("Passkey sign in failed")
       }
 
-      const sessionResponse = await fetch("/api/auth/session")
-      const session = await sessionResponse.json()
-      const targetPath = getDashboardByRole(session?.user?.role)
-      router.push(targetPath)
-      router.refresh()
+      await redirectToRoleDashboard()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Passkey sign in failed")
     } finally {

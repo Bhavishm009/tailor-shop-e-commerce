@@ -8,17 +8,22 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 export default function CustomStitchingPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
+  const role = session?.user?.role
 
   const bookingHref = useMemo(() => {
     if (!session?.user) return "/login?callbackUrl=%2Fcustomer%2Forders%2Fcustom"
+    if (role === "CUSTOMER") return "/customer/orders/custom"
+    if (role === "TAILOR") return "/tailor/dashboard"
+    if (role === "ADMIN") return "/admin/dashboard"
     return "/customer/orders/custom"
-  }, [session?.user])
+  }, [role, session?.user])
 
   const bookingLabel = useMemo(() => {
     if (!session?.user) return "Book Now"
-    return "Continue Booking"
-  }, [session?.user])
+    if (role === "CUSTOMER") return "Continue Booking"
+    return "Open Dashboard"
+  }, [role, session?.user])
 
   return (
     <main className="min-h-screen bg-background">
@@ -50,11 +55,13 @@ export default function CustomStitchingPage() {
           <h3 className="text-xl font-semibold">Ready to place a custom stitching order?</h3>
           <p className="text-muted-foreground">
             {session?.user
-              ? "You are signed in. Continue to measurement and custom booking."
+              ? role === "CUSTOMER"
+                ? "You are signed in. Continue to measurement and custom booking."
+                : "You are signed in with a non-customer role. Use your dashboard to continue."
               : "You can start the booking flow now. If you are not signed in, you will be asked to log in first."}
           </p>
           <div className="flex gap-3">
-            <Button asChild>
+            <Button asChild disabled={status === "loading"}>
               <Link href={bookingHref}>{bookingLabel}</Link>
             </Button>
             {!session?.user ? (
