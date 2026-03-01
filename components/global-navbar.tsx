@@ -31,8 +31,9 @@ export function GlobalNavbar() {
   }
 
   return (
-    <header className="border-b sticky top-0 z-50 bg-background">
-      <div className="max-w-7xl mx-auto px-4 py-4">
+    <>
+      <header className="fixed inset-x-0 top-0 z-[70] border-b border-border/60 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/55">
+        <div className="mx-auto max-w-7xl px-4 py-3 md:py-4">
         <div className="flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2">
             <Scissors className="w-8 h-8 text-primary" />
@@ -49,7 +50,7 @@ export function GlobalNavbar() {
             <Link href="/products" className="hover:text-primary transition">
               Products
             </Link>
-            <Link href="/custom-stitching" className="hover:text-primary transition">
+            <Link href="/custom-stitching" className="whitespace-nowrap hover:text-primary transition">
               Custom Stitching
             </Link>
           </nav>
@@ -117,7 +118,7 @@ export function GlobalNavbar() {
         </div>
 
         {mobileOpen && (
-          <div className="lg:hidden border-t mt-4 pt-4 space-y-4">
+          <div className="mt-3 space-y-4 rounded-xl border border-border/70 bg-card/85 p-4 shadow-sm backdrop-blur lg:hidden">
             <form onSubmit={onSearch} className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
@@ -183,7 +184,9 @@ export function GlobalNavbar() {
             )}
           </div>
         )}
-      </div>
-    </header>
+        </div>
+      </header>
+      <div aria-hidden className="h-[73px] md:h-[81px]" />
+    </>
   )
 }

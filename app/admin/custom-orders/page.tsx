@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
@@ -333,7 +334,20 @@ export default function CustomOrdersPage() {
         )}
 
         {loading ? (
-          <p className="text-muted-foreground">Loading custom orders...</p>
+          <div className="rounded-md border p-3">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="grid grid-cols-12 gap-2 border-b py-3 last:border-b-0">
+                <Skeleton className="col-span-1 h-5 w-5 rounded-sm" />
+                <Skeleton className="col-span-1 h-5 w-20" />
+                <Skeleton className="col-span-2 h-5 w-28" />
+                <Skeleton className="col-span-2 h-5 w-24" />
+                <Skeleton className="col-span-1 h-5 w-16" />
+                <Skeleton className="col-span-2 h-5 w-24" />
+                <Skeleton className="col-span-1 h-5 w-20" />
+                <Skeleton className="col-span-2 h-8 w-28 justify-self-end" />
+              </div>
+            ))}
+          </div>
         ) : totalRecords === 0 ? (
           <Empty className="border-0 p-10">
             <EmptyHeader>
@@ -408,6 +422,17 @@ export default function CustomOrdersPage() {
                               Assign Tailor
                             </Button>
                           ) : null}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              router.push(`/admin/chats?orderId=${order.id}`)
+                            }}
+                          >
+                            Chat
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>

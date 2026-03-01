@@ -29,32 +29,44 @@ export function NotificationPermissionPrompt() {
     try {
       const permission = await Notification.requestPermission()
       if (permission === "granted" && "serviceWorker" in navigator) {
-        const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" })
-        const sessionData = (await sessionResponse.json()) as { user?: { id?: string } }
-        if (!sessionData?.user?.id) {
+        const vapidKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY
+        if (vapidKey && /^[A-Za-z0-9\-_]+$/.test(vapidKey) && vapidKey.length >= 70) {
           let registration = await navigator.serviceWorker.getRegistration()
           if (!registration) {
             await navigator.serviceWorker.register("/sw.js", { scope: "/" })
             registration = await navigator.serviceWorker.ready
           }
           if (registration) {
-            const vapidKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY
-            if (vapidKey && /^[A-Za-z0-9\-_]+$/.test(vapidKey) && vapidKey.length >= 70) {
-              let subscription = await registration.pushManager.getSubscription()
-              if (!subscription) {
-                subscription = await registration.pushManager.subscribe({
-                  userVisibleOnly: true,
-                  applicationServerKey: urlBase64ToUint8Array(vapidKey),
-                })
-              }
+            let subscription = await registration.pushManager.getSubscription()
+            if (!subscription) {
+              subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(vapidKey),
+              })
+            }
+
+            const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" })
+            const sessionData = (await sessionResponse.json()) as { user?: { id?: string } }
+
+            const payload = {
+              endpoint: subscription.endpoint,
+              keys: subscription.toJSON().keys,
+              userAgent: buildPushUserAgent(),
+            }
+
+            if (sessionData?.user?.id) {
+              await fetch("/api/notifications/push-subscription", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              })
+            } else {
               await fetch("/api/notifications/guest-subscription", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   visitorId: getOrCreateVisitorId(),
-                  endpoint: subscription.endpoint,
-                  keys: subscription.toJSON().keys,
-                  userAgent: buildPushUserAgent(),
+                  ...payload,
                 }),
               })
             }

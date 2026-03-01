@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FeedbackToasts } from "@/components/feedback-toasts"
+import { OrderChatPanel } from "@/components/order-chat-panel"
 import { ChevronLeft } from "lucide-react"
 
 type TailorOrderDetail = {
@@ -192,6 +193,8 @@ export default function TailorOrderDetailPage() {
           </div>
         </Card>
       </div>
+
+      <OrderChatPanel orderId={order.id} role="TAILOR" />
     </div>
   )
 }

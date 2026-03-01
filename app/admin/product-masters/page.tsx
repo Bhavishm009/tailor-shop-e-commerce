@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 
 type ProductMasterType = "CATEGORY" | "SUBCATEGORY" | "CLOTH_TYPE" | "MATERIAL" | "SIZE" | "COLOR"
@@ -22,16 +23,23 @@ export default function ProductMastersPage() {
   const [name, setName] = useState("")
   const [type, setType] = useState<ProductMasterType>("CATEGORY")
   const [parentId, setParentId] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const load = async () => {
-    const response = await fetch("/api/admin/product-masters?includeInactive=1", { cache: "no-store" })
-    if (!response.ok) {
+    setLoading(true)
+    try {
+      const response = await fetch("/api/admin/product-masters?includeInactive=1", { cache: "no-store" })
+      if (!response.ok) {
+        setError("Failed to load product masters.")
+        return
+      }
+      const data = (await response.json()) as MasterItem[]
+      setItems(data)
+    } catch {
       setError("Failed to load product masters.")
-      return
+    } finally {
+      setLoading(false)
     }
-    const data = (await response.json()) as MasterItem[]
-    setItems(data)
   }
 
   useEffect(() => {
@@ -40,9 +48,11 @@ export default function ProductMastersPage() {
 
   const categories = items.filter((item) => item.type === "CATEGORY" && item.isActive)
 
+  const [creating, setCreating] = useState(false)
+
   const create = async () => {
     setError("")
-    setLoading(true)
+    setCreating(true)
     try {
       const response = await fetch("/api/admin/product-masters", {
         method: "POST",
@@ -58,7 +68,7 @@ export default function ProductMastersPage() {
       setParentId("")
       await load()
     } finally {
-      setLoading(false)
+      setCreating(false)
     }
   }
 
@@ -106,8 +116,8 @@ export default function ProductMastersPage() {
               </option>
             ))}
           </select>
-          <Button type="button" onClick={create} disabled={loading || !name.trim()}>
-            {loading ? "Adding..." : "Add"}
+          <Button type="button" onClick={create} disabled={creating || loading || !name.trim()}>
+            {creating ? "Adding..." : "Add"}
           </Button>
         </div>
       </Card>
@@ -124,23 +134,37 @@ export default function ProductMastersPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item.id} className="border-b">
-                  <td className="py-2">{item.name}</td>
-                  <td className="py-2">{item.type}</td>
-                  <td className="py-2">{item.isActive ? "Active" : "Inactive"}</td>
-                  <td className="py-2">
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => toggleActive(item)}>
-                        {item.isActive ? "Disable" : "Enable"}
-                      </Button>
-                      <Button type="button" variant="destructive" size="sm" onClick={() => remove(item.id)}>
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {loading
+                ? Array.from({ length: 8 }).map((_, index) => (
+                    <tr key={`skeleton-${index}`} className="border-b">
+                      <td className="py-2"><Skeleton className="h-4 w-36" /></td>
+                      <td className="py-2"><Skeleton className="h-4 w-24" /></td>
+                      <td className="py-2"><Skeleton className="h-4 w-16" /></td>
+                      <td className="py-2">
+                        <div className="flex justify-end gap-2">
+                          <Skeleton className="h-8 w-16" />
+                          <Skeleton className="h-8 w-16" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                : items.map((item) => (
+                    <tr key={item.id} className="border-b">
+                      <td className="py-2">{item.name}</td>
+                      <td className="py-2">{item.type}</td>
+                      <td className="py-2">{item.isActive ? "Active" : "Inactive"}</td>
+                      <td className="py-2">
+                        <div className="flex justify-end gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => toggleActive(item)}>
+                            {item.isActive ? "Disable" : "Enable"}
+                          </Button>
+                          <Button type="button" variant="destructive" size="sm" onClick={() => remove(item.id)}>
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
             </tbody>
           </table>
         </div>

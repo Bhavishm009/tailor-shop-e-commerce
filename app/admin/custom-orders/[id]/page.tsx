@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ChevronLeft, Download } from "lucide-react"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
+import { OrderChatPanel } from "@/components/order-chat-panel"
 
 type AdminOrderDetail = {
   id: string
@@ -540,6 +541,8 @@ export default function AdminCustomOrderDetailPage() {
           {order.measurement?.notes ? <p className="text-sm">{order.measurement.notes}</p> : null}
         </Card>
       </div>
+
+      <OrderChatPanel orderId={order.id} role="ADMIN" />
     </div>
   )
 }

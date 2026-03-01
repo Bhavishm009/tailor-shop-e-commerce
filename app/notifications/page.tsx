@@ -7,6 +7,9 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { GlobalNavbar } from "@/components/global-navbar"
 import { FeedbackToasts } from "@/components/feedback-toasts"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Bell, BellRing, CalendarClock, ExternalLink } from "lucide-react"
 
 type NotificationItem = {
   id: string
@@ -106,27 +109,73 @@ export default function NotificationsPage() {
     }
   }
 
+  const getTypeLabel = (type: string) => {
+    if (type === "ADMIN_BROADCAST") return "Broadcast"
+    if (type === "ORDER") return "Order"
+    if (type === "CUSTOM_ORDER") return "Custom Order"
+    return "Notification"
+  }
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       <GlobalNavbar />
-      <div className="p-4 md:p-8">
-        <div className="mx-auto max-w-5xl space-y-6">
+      <div className="px-4 py-6 md:px-8 md:py-8">
+        <div className="mx-auto max-w-5xl space-y-5">
+          <Card className="border-border/70 bg-card/80 p-5 backdrop-blur-sm md:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  {unreadCount > 0 ? <BellRing className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold md:text-3xl">All Notifications</h1>
+                  <p className="mt-1 text-sm text-muted-foreground">Recent updates grouped by month and day.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={unreadCount > 0 ? "default" : "secondary"}>Unread: {unreadCount}</Badge>
+                {unreadCount > 0 ? (
+                  <Button onClick={markAllRead} variant="outline">
+                    Mark all read
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </Card>
+
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold">All Notifications</h1>
-              <p className="text-sm text-muted-foreground mt-1">Unread: {unreadCount}</p>
+              <h2 className="text-base font-semibold md:text-lg">Notification Listing</h2>
+              <p className="text-xs text-muted-foreground">Sorted by latest first.</p>
             </div>
-            {unreadCount > 0 ? (
-              <Button onClick={markAllRead} variant="outline">
-                Mark all read
-              </Button>
-            ) : null}
           </div>
+
           <FeedbackToasts error={error} />
 
-          {loading ? <Card className="p-4 text-muted-foreground">Loading notifications...</Card> : null}
+          {loading ? (
+            <Card className="space-y-4 p-4 md:p-6">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-6 w-24" />
+              </div>
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="rounded-xl border p-4">
+                  <div className="flex items-start gap-3">
+                    <Skeleton className="mt-1 h-9 w-9 rounded-full" />
+                    <div className="w-full space-y-2">
+                      <Skeleton className="h-4 w-52" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </Card>
+          ) : null}
+
           {error ? (
-            <Card className="p-4 text-sm text-red-600 border-red-300">
+            <Card className="border-red-300 p-4 text-sm text-red-600">
               {error}{" "}
               <Link href="/login" className="underline">
                 Go to login
@@ -135,33 +184,56 @@ export default function NotificationsPage() {
           ) : null}
 
           {!loading && !error && items.length === 0 ? (
-            <Card className="p-4 text-muted-foreground">No notifications yet.</Card>
+            <Card className="p-8 text-center text-muted-foreground">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <Bell className="h-5 w-5" />
+              </div>
+              <p className="font-medium text-foreground">No notifications yet.</p>
+              <p className="mt-1 text-sm">You will see updates here when new activity happens.</p>
+            </Card>
           ) : null}
 
           {!loading && !error
             ? grouped.map((month) => (
                 <div key={month.monthKey} className="space-y-4">
-                  <h2 className="text-lg font-semibold">{month.monthLabel}</h2>
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                    <h2 className="text-lg font-semibold">{month.monthLabel}</h2>
+                  </div>
                   {month.days.map((day) => (
                     <div key={day.dayKey} className="space-y-2">
                       <h3 className="text-sm font-medium text-muted-foreground">{day.dayLabel}</h3>
                       {day.items.map((item) => (
                         <Card
                           key={item.id}
-                          className={`p-4 ${item.isRead ? "border-muted" : "border-primary/40 bg-primary/5"}`}
+                          className={`border-border/70 p-4 transition-colors ${
+                            item.isRead ? "bg-card/80" : "border-primary/40 bg-primary/5"
+                          }`}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="space-y-1">
-                              <p className={`text-sm ${item.isRead ? "font-medium" : "font-semibold"}`}>{item.title}</p>
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                              <Bell className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className={`text-sm ${item.isRead ? "font-medium" : "font-semibold"}`}>{item.title}</p>
+                                <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                                  {getTypeLabel(item.type)}
+                                </Badge>
+                              </div>
                               <p className="text-sm text-muted-foreground">{item.message}</p>
-                              <p className="text-xs text-muted-foreground">{format(new Date(item.createdAt), "dd MMM yyyy, hh:mm a")}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(item.createdAt), "dd MMM yyyy, hh:mm a")}
+                              </p>
                             </div>
                             {!item.isRead ? <span className="mt-1 h-2 w-2 rounded-full bg-primary" /> : null}
                           </div>
-                          <div className="mt-3 flex items-center gap-2">
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
                             {item.link ? (
-                              <Button asChild size="sm" variant="outline" onClick={() => void markOneRead(item.id)}>
-                                <Link href={item.link}>Open</Link>
+                              <Button asChild size="sm" variant="outline">
+                                <Link href={item.link} onClick={() => void markOneRead(item.id)}>
+                                  Open <ExternalLink className="ml-1 h-3 w-3" />
+                                </Link>
                               </Button>
                             ) : null}
                             {!item.isRead ? (

@@ -163,6 +163,17 @@ export default function OrdersPage() {
         </div>
 
         <div className="flex flex-col gap-2 w-full md:w-auto">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation()
+              router.push(`/tailor/chats?orderId=${order.id}`)
+            }}
+          >
+            Open Chat
+          </Button>
           {order.status === "ASSIGNED" ? (
             <Button size="sm" onClick={(e) => { e.stopPropagation(); void updateStatus(order.id, "STITCHING") }} disabled={updatingId === order.id}>
               {updatingId === order.id ? "Updating..." : "Start Stitching"}

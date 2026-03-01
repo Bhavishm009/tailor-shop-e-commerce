@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FeedbackToasts } from "@/components/feedback-toasts"
+import { OrderChatPanel } from "@/components/order-chat-panel"
 import { ChevronLeft, Download } from "lucide-react"
 
 type CustomOrderDetail = {
@@ -388,6 +389,8 @@ export default function CustomerCustomOrderDetailPage() {
           </div>
         </Card>
       </div>
+
+      <OrderChatPanel orderId={order.id} role="CUSTOMER" />
     </div>
   )
 }

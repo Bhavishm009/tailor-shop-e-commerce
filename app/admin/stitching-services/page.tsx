@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
@@ -187,7 +188,18 @@ export default function AdminStitchingServicesPage() {
         </div>
 
         {loading ? (
-          <p className="text-muted-foreground">Loading stitching services...</p>
+          <div className="rounded-md border p-3">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="grid grid-cols-12 gap-2 border-b py-3 last:border-b-0">
+                <Skeleton className="col-span-2 h-5 w-24" />
+                <Skeleton className="col-span-2 h-5 w-28" />
+                <Skeleton className="col-span-2 h-5 w-20" />
+                <Skeleton className="col-span-2 h-5 w-24" />
+                <Skeleton className="col-span-2 h-5 w-20" />
+                <Skeleton className="col-span-2 h-8 w-24 justify-self-end" />
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <Empty className="border-0 p-10">
             <EmptyHeader>

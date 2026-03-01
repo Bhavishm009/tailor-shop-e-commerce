@@ -73,6 +73,19 @@ enum ProductMasterType {
   COLOR
 }
 
+enum ChatMessageType {
+  TEXT
+  COMPLAINT
+  SYSTEM
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
 ////////////////////////////////////////////////////////////
 // Models                                                 //
 ////////////////////////////////////////////////////////////
@@ -110,6 +123,11 @@ model User {
   payments Payment[]
   notifications Notification[]
   pushSubscriptions PushSubscription[]
+  sentChatMessages OrderMessage[] @relation("OrderMessageSender")
+  orderConversationsAsCustomer OrderConversation[] @relation("OrderConversationCustomer")
+  orderConversationsAsTailor OrderConversation[] @relation("OrderConversationTailor")
+  handledComplaints ReturnComplaint[] @relation("ComplaintHandledBy")
+  complaintsRaised ReturnComplaint[] @relation("ComplaintRaisedBy")
 
   @@index([email])
   @@index([role])
@@ -402,6 +420,9 @@ model StitchingOrder {
   measurement Measurement @relation(fields: [measurementId], references: [id])
   assignment  Assignment?
   payment     Payment?
+  conversation OrderConversation?
+  complaints  ReturnComplaint[]
+  messages    OrderMessage[]
 
   @@index([customerId])
   @@index([status])
@@ -525,4 +546,64 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model OrderConversation {
+  id              String   @id @default(cuid())
+  stitchingOrderId String  @unique
+  customerId      String
+  tailorId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  stitchingOrder StitchingOrder @relation(fields: [stitchingOrderId], references: [id], onDelete: Cascade)
+  customer       User           @relation("OrderConversationCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  tailor         User?          @relation("OrderConversationTailor", fields: [tailorId], references: [id], onDelete: SetNull)
+  messages       OrderMessage[]
+
+  @@index([customerId])
+  @@index([tailorId])
+}
+
+model OrderMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  stitchingOrderId String
+  senderId       String
+  type           ChatMessageType @default(TEXT)
+  message        String
+  isRead         Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+
+  conversation   OrderConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  stitchingOrder StitchingOrder    @relation(fields: [stitchingOrderId], references: [id], onDelete: Cascade)
+  sender         User              @relation("OrderMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  complaint      ReturnComplaint?
+
+  @@index([conversationId, createdAt])
+  @@index([stitchingOrderId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model ReturnComplaint {
+  id               String          @id @default(cuid())
+  stitchingOrderId String
+  raisedById       String
+  messageId        String?         @unique
+  title            String
+  details          String
+  status           ComplaintStatus @default(OPEN)
+  adminNote        String?
+  handledById      String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  stitchingOrder StitchingOrder @relation(fields: [stitchingOrderId], references: [id], onDelete: Cascade)
+  raisedBy       User          @relation("ComplaintRaisedBy", fields: [raisedById], references: [id], onDelete: Cascade)
+  handledBy      User?         @relation("ComplaintHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  message        OrderMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([stitchingOrderId, createdAt])
+  @@index([status, createdAt])
+  @@index([raisedById, createdAt])
 }

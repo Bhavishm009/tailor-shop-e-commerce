@@ -1,6 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { GlobalNavbar } from "@/components/global-navbar"
+import { SiteFooter } from "@/components/site-footer"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { db } from "@/lib/db"
@@ -104,6 +105,7 @@ export default async function BlogPage() {
           </div>
         )}
       </section>
+      <SiteFooter />
     </main>
   )
 }

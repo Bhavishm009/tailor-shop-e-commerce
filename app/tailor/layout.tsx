@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Menu, Home, Package, DollarSign, Star, User, LogOut, Settings, Wallet } from "lucide-react"
+import { Menu, Home, Package, DollarSign, Star, User, LogOut, Settings, Wallet, MessageSquare } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 
@@ -32,6 +32,7 @@ export default function TailorLayout({
   const navItems = [
     { href: "/tailor/dashboard", label: "Dashboard", icon: Home },
     { href: "/tailor/orders", label: "Assigned Orders", icon: Package },
+    { href: "/tailor/chats", label: "Order Chats", icon: MessageSquare },
     { href: "/tailor/earnings", label: "Earnings", icon: DollarSign },
     { href: "/tailor/account", label: "Account Panel", icon: Wallet },
     { href: "/tailor/profile", label: "Profile", icon: Star },

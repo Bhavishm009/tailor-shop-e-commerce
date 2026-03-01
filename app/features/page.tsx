@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { GlobalNavbar } from "@/components/global-navbar"
+import { SiteFooter } from "@/components/site-footer"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Scissors, ShoppingBag, TrendingUp } from "lucide-react"
@@ -72,6 +73,7 @@ export default function FeaturesPage() {
           </Button>
         </div>
       </section>
+      <SiteFooter />
     </main>
   )
 }

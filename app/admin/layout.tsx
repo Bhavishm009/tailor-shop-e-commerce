@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Menu, BarChart3, Users, Package, Scissors, Settings, Star, FileText, User, LogOut, Bell, Wallet } from "lucide-react"
+import { Menu, BarChart3, Users, Package, Scissors, Settings, Star, FileText, User, LogOut, Bell, Wallet, MessageSquare } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -41,6 +41,7 @@ export default function AdminLayout({
     { href: "/admin/blogs", label: "Blogs", icon: FileText },
     { href: "/admin/ready-made-orders", label: "Ready-Made Orders", icon: Package },
     { href: "/admin/custom-orders", label: "Custom Orders", icon: Scissors },
+    { href: "/admin/chats", label: "Order Chats", icon: MessageSquare },
     { href: "/admin/tailor-accounts", label: "Tailor Accounts", icon: Wallet },
     { href: "/admin/stitching-services", label: "Stitching Services", icon: Scissors },
     { href: "/admin/reviews", label: "Reviews", icon: Star },
@@ -67,7 +68,7 @@ export default function AdminLayout({
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
-      <header className="border-b shrink-0 bg-background">
+      <header className="sticky top-0 z-30 shrink-0 border-b border-border/70 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
             <button onClick={toggleSidebar} aria-label="Toggle admin menu">

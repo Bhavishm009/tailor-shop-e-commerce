@@ -3,28 +3,71 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { CheckCircle2, Scissors, ShoppingBag, TrendingUp } from "lucide-react"
 import { GlobalNavbar } from "@/components/global-navbar"
+import { SiteFooter } from "@/components/site-footer"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "TailorHub | Custom Stitching & Ready-Made Clothing",
-  description: "Shop ready-made garments or book custom stitching with expert tailors. TailorHub delivers precise fit and quality craftsmanship.",
+  title: "Custom Stitching & Premium Ready-Made Clothing",
+  description:
+    "Order custom stitching, shop premium ready-made fashion, and track every step with TailorHub's modern tailoring platform.",
+  keywords: [
+    "custom stitching",
+    "ready-made clothing",
+    "tailor near me",
+    "online tailoring",
+    "fashion ecommerce",
+    "tailorhub",
+  ],
   alternates: { canonical: "/" },
   openGraph: {
-    title: "TailorHub | Custom Stitching & Ready-Made Clothing",
-    description: "Shop ready-made garments or book custom stitching with expert tailors.",
+    title: "TailorHub | Custom Stitching & Premium Ready-Made Clothing",
+    description: "Book expert stitching and shop premium outfits with TailorHub.",
     url: "/",
     type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "TailorHub custom stitching and ready-made fashion",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "TailorHub | Custom Stitching & Ready-Made Clothing",
-    description: "Shop ready-made garments or book custom stitching with expert tailors.",
+    title: "TailorHub | Custom Stitching & Premium Ready-Made Clothing",
+    description: "Book expert stitching and shop premium outfits with TailorHub.",
+    images: ["/twitter-image"],
   },
 }
 
 export default function Home() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "TailorHub",
+    url: siteUrl,
+    logo: `${siteUrl}/icon-512x512.png`,
+    sameAs: [],
+  }
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "TailorHub",
+    url: siteUrl,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteUrl}/search?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  }
+
   return (
     <main className="min-h-screen bg-background">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }} />
       <GlobalNavbar />
 
       {/* Hero */}
@@ -118,12 +161,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-primary text-primary-foreground py-8 mt-10 md:mt-16">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p>&copy; 2026 TailorHub. All rights reserved.</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   )
 }

@@ -49,6 +49,7 @@ type TailorSummary = {
   completed: number
   totalPayout: number
   paid: number
+  advancePaid: number
   pending: number
 }
 
@@ -58,6 +59,7 @@ type TailorAccountsResponse = {
   totals: {
     pendingPayout: number
     paidPayout: number
+    totalAdvancePaid: number
     assignmentCount: number
   }
 }
@@ -74,6 +76,7 @@ export default function AdminTailorAccountsPage() {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
   const [amountInputs, setAmountInputs] = useState<Record<string, string>>({})
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [advanceInputs, setAdvanceInputs] = useState<Record<string, string>>({})
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
@@ -94,6 +97,13 @@ export default function AdminTailorAccountsPage() {
           if (!(row.id in next)) {
             next[row.id] = row.pendingAmount > 0 ? row.pendingAmount.toFixed(2) : ""
           }
+        }
+        return next
+      })
+      setAdvanceInputs((prev) => {
+        const next = { ...prev }
+        for (const tailor of payload.tailors) {
+          if (!(tailor.id in next)) next[tailor.id] = ""
         }
         return next
       })
@@ -161,6 +171,19 @@ export default function AdminTailorAccountsPage() {
     })
   }, [data, query, payoutFilter, orderStatusFilter, datePreset, dateFrom, dateTo])
 
+  const filteredTailors = useMemo(() => {
+    if (!data) return []
+    const q = query.trim().toLowerCase()
+    return data.tailors.filter((tailor) => {
+      if (!q) return true
+      return (
+        tailor.name.toLowerCase().includes(q) ||
+        tailor.email.toLowerCase().includes(q) ||
+        (tailor.phone || "").toLowerCase().includes(q)
+      )
+    })
+  }, [data, query])
+
   const payAmount = async (row: AssignmentRow) => {
     setError("")
     setSuccess("")
@@ -196,6 +219,38 @@ export default function AdminTailorAccountsPage() {
     }
   }
 
+  const payAdvance = async (tailor: TailorSummary) => {
+    setError("")
+    setSuccess("")
+    const amount = Number(advanceInputs[tailor.id] || 0)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Enter a valid advance amount.")
+      return
+    }
+
+    setActionLoadingId(`advance-${tailor.id}`)
+    try {
+      const response = await fetch("/api/admin/tailor-accounts/payout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tailorId: tailor.id, amount }),
+      })
+      const payload = (await response.json().catch(() => ({ error: "Failed to pay advance." }))) as {
+        error?: string
+        paidAmount?: number
+      }
+      if (!response.ok) {
+        setError(payload.error || "Failed to pay advance.")
+        return
+      }
+      setSuccess(`Advance Rs. ${(payload.paidAmount || amount).toFixed(2)} paid to ${tailor.name}.`)
+      setAdvanceInputs((prev) => ({ ...prev, [tailor.id]: "" }))
+      await load()
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
   return (
     <div className="p-4 md:p-8 space-y-6">
       <h1 className="text-2xl md:text-3xl font-bold">Tailor Accounts</h1>
@@ -214,7 +269,7 @@ export default function AdminTailorAccountsPage() {
 
       {data ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="p-4">
               <p className="text-xs text-muted-foreground">Pending To Pay</p>
               <p className="text-xl font-semibold mt-1">Rs. {data.totals.pendingPayout.toFixed(2)}</p>
@@ -222,6 +277,10 @@ export default function AdminTailorAccountsPage() {
             <Card className="p-4">
               <p className="text-xs text-muted-foreground">Already Paid</p>
               <p className="text-xl font-semibold mt-1">Rs. {data.totals.paidPayout.toFixed(2)}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-muted-foreground">Advance Paid</p>
+              <p className="text-xl font-semibold mt-1">Rs. {data.totals.totalAdvancePaid.toFixed(2)}</p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-muted-foreground">Total Assignments</p>
@@ -261,6 +320,59 @@ export default function AdminTailorAccountsPage() {
                   Clear
                 </Button>
               ) : null}
+            </div>
+          </Card>
+
+          <Card className="space-y-4 p-4">
+            <h2 className="text-lg font-semibold">Advance Payment To Tailors</h2>
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Tailor</th>
+                    <th className="px-3 py-2 text-right">Total Payout</th>
+                    <th className="px-3 py-2 text-right">Paid</th>
+                    <th className="px-3 py-2 text-right">Advance</th>
+                    <th className="px-3 py-2 text-right">Pending</th>
+                    <th className="px-3 py-2 text-left">Pay Advance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTailors.map((tailor) => (
+                    <tr key={tailor.id} className="border-t">
+                      <td className="px-3 py-2">
+                        <p>{tailor.name}</p>
+                        <p className="text-xs text-muted-foreground">{tailor.email}</p>
+                      </td>
+                      <td className="px-3 py-2 text-right">Rs. {tailor.totalPayout.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right">Rs. {tailor.paid.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right">Rs. {tailor.advancePaid.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right font-medium">Rs. {tailor.pending.toFixed(2)}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex min-w-[220px] items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={advanceInputs[tailor.id] ?? ""}
+                            onChange={(event) =>
+                              setAdvanceInputs((prev) => ({ ...prev, [tailor.id]: event.target.value }))
+                            }
+                            placeholder="Advance amount"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => void payAdvance(tailor)}
+                            disabled={actionLoadingId === `advance-${tailor.id}`}
+                          >
+                            {actionLoadingId === `advance-${tailor.id}` ? "Paying..." : "Pay"}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
 

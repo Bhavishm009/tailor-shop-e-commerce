@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
 import { GlobalNavbar } from "@/components/global-navbar"
+import { SiteFooter } from "@/components/site-footer"
 import { Card } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { ProductsMobileFilter } from "@/components/products-mobile-filter"
@@ -137,6 +138,20 @@ export async function generateMetadata({ searchParams }: ProductsPageProps): Pro
       description,
       url: canonicalPath,
       type: "website",
+      images: [
+        {
+          url: "/opengraph-image",
+          width: 1200,
+          height: 630,
+          alt: "TailorHub products and custom tailoring",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${titlePrefix} | TailorHub`,
+      description,
+      images: ["/twitter-image"],
     },
   }
 }
@@ -369,6 +384,7 @@ export default async function PublicProductsPage({ searchParams }: ProductsPageP
           </div>
         </div>
       </section>
+      <SiteFooter />
     </main>
   )
 }
