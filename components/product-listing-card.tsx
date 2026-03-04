@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { AddToCartButton } from "@/components/add-to-cart-button"
 import { WishlistToggleButton } from "@/components/wishlist-toggle-button"
 import { getOptimizedImageUrl } from "@/lib/media-url"
+import { useI18n } from "@/components/i18n-provider"
+import { getLocalizedText, localizeCatalogLabel } from "@/lib/localize"
 
 type ProductListingCardProps = {
   id: string
@@ -38,6 +40,7 @@ const toStringArray = (value: unknown): string[] => {
 }
 
 export function ProductListingCard(props: ProductListingCardProps) {
+  const { language, dictionary } = useI18n()
   const router = useRouter()
   const [activeIndex, setActiveIndex] = useState(0)
   const [dragged, setDragged] = useState(false)
@@ -81,6 +84,11 @@ export function ProductListingCard(props: ProductListingCardProps) {
   }, [emblaApi])
 
   const goDetails = () => router.push(`/products/${props.id}`)
+  const localizedName = getLocalizedText(props.name, language, props.name)
+  const localizedDescription = getLocalizedText(props.description, language, "") || dictionary.common.noDescription
+  const localizedCategory = localizeCatalogLabel(props.category, language)
+  const localizedClothType = localizeCatalogLabel(props.clothType, language)
+  const localizedMaterial = localizeCatalogLabel(props.material, language)
 
   return (
     <Card
@@ -108,7 +116,7 @@ export function ProductListingCard(props: ProductListingCardProps) {
                   {slide.kind === "image" ? (
                     <Image
                       src={getOptimizedImageUrl(slide.url, "card")}
-                      alt={props.name}
+                      alt={localizedName}
                       width={640}
                       height={800}
                       className="h-full w-full object-cover"
@@ -149,7 +157,7 @@ export function ProductListingCard(props: ProductListingCardProps) {
         <div data-no-nav="true">
           <WishlistToggleButton
             id={props.id}
-            name={props.name}
+            name={localizedName}
             price={props.price}
             image={props.image}
             iconOnly
@@ -160,13 +168,13 @@ export function ProductListingCard(props: ProductListingCardProps) {
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="font-semibold text-base line-clamp-1">{props.name}</h2>
-          <Badge variant="outline">{props.category}</Badge>
+          <h2 className="font-semibold text-base line-clamp-1">{localizedName}</h2>
+          <Badge variant="outline">{localizedCategory || props.category}</Badge>
         </div>
-        <p className="text-sm text-muted-foreground line-clamp-2">{props.description || "No description available."}</p>
+        <p className="text-sm text-muted-foreground line-clamp-2">{localizedDescription}</p>
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-          {props.clothType ? <span>Type: {props.clothType}</span> : null}
-          {props.material ? <span>Material: {props.material}</span> : null}
+          {props.clothType ? <span>Type: {localizedClothType || props.clothType}</span> : null}
+          {props.material ? <span>{dictionary.common.material}: {localizedMaterial || props.material}</span> : null}
         </div>
         <p className="text-lg font-bold">Rs. {props.price.toFixed(2)}</p>
       </div>
@@ -175,7 +183,7 @@ export function ProductListingCard(props: ProductListingCardProps) {
         <AddToCartButton
           className="w-full"
           id={props.id}
-          name={props.name}
+          name={localizedName}
           price={props.price}
           image={props.image}
           stock={props.stock}

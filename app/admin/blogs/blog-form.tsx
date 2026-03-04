@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress"
 import { BlogEditor } from "@/components/blog-editor"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
+import { Skeleton } from "@/components/ui/skeleton"
 import { isValidImageFile, uploadFile } from "@/lib/file-upload"
 
 type BlogPost = {
@@ -209,7 +210,16 @@ export function BlogForm({ blogId }: BlogFormProps) {
   }
 
   if (loading) {
-    return <div className="p-8 text-muted-foreground">Loading blog...</div>
+    return (
+      <div className="p-8">
+        <Card className="space-y-3 p-6">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-56 w-full" />
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -260,18 +270,22 @@ export function BlogForm({ blogId }: BlogFormProps) {
             </div>
           ) : null}
           {pendingCoverPreview || coverImage ? (
-            <img
-              src={pendingCoverPreview || coverImage}
-              alt="Cover preview"
-              className="h-44 w-full rounded-md object-cover"
-            />
+            <div className="overflow-hidden rounded-md border bg-muted/30">
+              <img
+                src={pendingCoverPreview || coverImage}
+                alt="Cover preview"
+                className="aspect-video w-full object-contain"
+              />
+            </div>
           ) : null}
           {pendingOgPreview || ogImage ? (
-            <img
-              src={pendingOgPreview || ogImage}
-              alt="OG preview"
-              className="h-44 w-full rounded-md object-cover"
-            />
+            <div className="overflow-hidden rounded-md border bg-muted/30">
+              <img
+                src={pendingOgPreview || ogImage}
+                alt="OG preview"
+                className="aspect-[1200/630] w-full object-contain"
+              />
+            </div>
           ) : null}
         </Card>
 

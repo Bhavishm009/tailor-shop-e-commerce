@@ -247,7 +247,7 @@ export default function ReadyMadeOrdersPage() {
 
       <Card className="p-4 md:p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search order/customer" className="w-full sm:max-w-md" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search order/customer" className="w-full lg:max-w-2xl" />
           <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
             Filters
             {activeFiltersCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs text-primary-foreground">{activeFiltersCount}</span> : null}

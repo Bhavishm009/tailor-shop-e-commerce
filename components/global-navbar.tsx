@@ -11,6 +11,8 @@ import { useCart } from "@/components/cart-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Heart, Menu, Scissors, Search, ShoppingCart, X } from "lucide-react"
 import { getDashboardByRole } from "@/lib/role-routes"
+import { languageNames, supportedLanguages, type LanguageCode } from "@/lib/i18n"
+import { useI18n } from "@/components/i18n-provider"
 
 export function GlobalNavbar() {
   const router = useRouter()
@@ -18,6 +20,7 @@ export function GlobalNavbar() {
   const { count, wishlistCount } = useCart()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const { language, setLanguage, dictionary } = useI18n()
 
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,16 +45,16 @@ export function GlobalNavbar() {
 
           <nav className="hidden lg:flex items-center gap-4 xl:gap-6">
             <Link href="/features" className="hover:text-primary transition">
-              Features
+              {dictionary.navbar.features}
             </Link>
             <Link href="/blog" className="hover:text-primary transition">
-              Blog
+              {dictionary.navbar.blog}
             </Link>
             <Link href="/products" className="hover:text-primary transition">
-              Products
+              {dictionary.navbar.products}
             </Link>
             <Link href="/custom-stitching" className="whitespace-nowrap hover:text-primary transition">
-              Custom Stitching
+              {dictionary.navbar.customStitching}
             </Link>
           </nav>
 
@@ -61,16 +64,28 @@ export function GlobalNavbar() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search products or blogs..."
+                placeholder={dictionary.navbar.searchPlaceholder}
                 className="pl-10"
               />
             </div>
             <Button type="submit" variant="outline">
-              Search
+              {dictionary.navbar.searchButton}
             </Button>
           </form>
 
           <div className="hidden lg:flex items-center gap-2 xl:gap-3">
+            {/* <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as LanguageCode)}
+              aria-label="Select language"
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            >
+              {supportedLanguages.map((item) => (
+                <option key={item} value={item}>
+                  {languageNames[item]}
+                </option>
+              ))}
+            </select> */}
             <Button variant="outline" asChild className="relative">
               <Link href="/cart" aria-label="Cart">
                 <ShoppingCart className="w-4 h-4" />
@@ -98,15 +113,15 @@ export function GlobalNavbar() {
                   router.push(getDashboardByRole(session.user.role))
                 }}
               >
-                Dashboard
+                {dictionary.navbar.dashboard}
               </Button>
             ) : (
               <>
                 <Button variant="outline" asChild>
-                  <Link href="/login">Sign In</Link>
+                  <Link href="/login">{dictionary.navbar.signIn}</Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/signup">Sign Up</Link>
+                  <Link href="/signup">{dictionary.navbar.signUp}</Link>
                 </Button>
               </>
             )}
@@ -125,37 +140,50 @@ export function GlobalNavbar() {
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search products or blogs..."
+                  placeholder={dictionary.navbar.searchPlaceholder}
                   className="pl-10"
                 />
               </div>
               <Button type="submit" variant="outline">
-                Go
+                {dictionary.navbar.goButton}
               </Button>
             </form>
 
+            {/* <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as LanguageCode)}
+              aria-label="Select language"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            >
+              {supportedLanguages.map((item) => (
+                <option key={item} value={item}>
+                  {languageNames[item]}
+                </option>
+              ))}
+            </select> */}
+
             <nav className="flex flex-col gap-2">
               <Link href="/features" onClick={() => setMobileOpen(false)} className="hover:text-primary transition">
-                Features
+                {dictionary.navbar.features}
               </Link>
               <Link href="/blog" onClick={() => setMobileOpen(false)} className="hover:text-primary transition">
-                Blog
+                {dictionary.navbar.blog}
               </Link>
               <Link href="/products" onClick={() => setMobileOpen(false)} className="hover:text-primary transition">
-                Products
+                {dictionary.navbar.products}
               </Link>
               <Link
                 href="/custom-stitching"
                 onClick={() => setMobileOpen(false)}
                 className="hover:text-primary transition"
               >
-                Custom Stitching
+                {dictionary.navbar.customStitching}
               </Link>
               <Link href="/cart" onClick={() => setMobileOpen(false)} className="hover:text-primary transition">
-                Cart ({count})
+                {dictionary.navbar.cart} ({count})
               </Link>
               <Link href="/wishlist" onClick={() => setMobileOpen(false)} className="hover:text-primary transition">
-                Wishlist ({wishlistCount})
+                {dictionary.navbar.wishlist} ({wishlistCount})
               </Link>
               <div>
                 <ThemeToggle />
@@ -170,15 +198,15 @@ export function GlobalNavbar() {
                   router.push(getDashboardByRole(session.user.role))
                 }}
               >
-                Dashboard
+                {dictionary.navbar.dashboard}
               </Button>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <Button variant="outline" asChild onClick={() => setMobileOpen(false)}>
-                  <Link href="/login">Sign In</Link>
+                  <Link href="/login">{dictionary.navbar.signIn}</Link>
                 </Button>
                 <Button asChild onClick={() => setMobileOpen(false)}>
-                  <Link href="/signup">Sign Up</Link>
+                  <Link href="/signup">{dictionary.navbar.signUp}</Link>
                 </Button>
               </div>
             )}

@@ -358,7 +358,7 @@ export default function AdminBlogsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search title/category/excerpt"
-            className="w-full sm:max-w-md"
+            className="w-full lg:max-w-2xl"
           />
           <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
             Filters
@@ -465,15 +465,16 @@ export default function AdminBlogsPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           {post.coverImage ? (
-                            <Image
-                              src={post.coverImage}
-                              alt={post.title}
-                              width={96}
-                              height={60}
-                              placeholder={post.coverImageBlurDataUrl ? "blur" : "empty"}
-                              blurDataURL={post.coverImageBlurDataUrl || undefined}
-                              className="h-12 w-20 rounded object-cover"
-                            />
+                            <div className="relative aspect-video w-24 overflow-hidden rounded border bg-muted/30">
+                              <Image
+                                src={post.coverImage}
+                                alt={post.title}
+                                fill
+                                placeholder={post.coverImageBlurDataUrl ? "blur" : "empty"}
+                                blurDataURL={post.coverImageBlurDataUrl || undefined}
+                                className="object-contain"
+                              />
+                            </div>
                           ) : null}
                           <div className="space-y-1">
                             <p className="font-medium">{post.title}</p>

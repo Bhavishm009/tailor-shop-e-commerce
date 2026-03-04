@@ -46,13 +46,17 @@ export async function POST(request: Request) {
         },
       })
 
-      await createOrderNotification({
-        userId: tailor.id,
-        title: "Advance payout credited",
-        message: `Rs. ${amount} advance payout has been credited by admin.`,
-        type: "TAILOR_PAYOUT_PAID",
-        link: "/tailor/account",
-      })
+      try {
+        await createOrderNotification({
+          userId: tailor.id,
+          title: "Advance payout credited",
+          message: `Rs. ${amount} advance payout has been credited by admin.`,
+          type: "TAILOR_PAYOUT_PAID",
+          link: "/tailor/account",
+        })
+      } catch (notificationError) {
+        console.error("[admin/tailor-accounts/payout/post][advance-notification]", notificationError)
+      }
 
       return NextResponse.json({
         ok: true,
@@ -128,13 +132,17 @@ export async function POST(request: Request) {
 
     const pendingAfter = Math.max(0, pendingBefore - payableAmount)
 
-    await createOrderNotification({
-      userId: assignment.tailor.id,
-      title: "Payout credited",
-      message: `Rs. ${payableAmount.toFixed(2)} paid for ${assignment.stitchingOrder.stitchingService}. Pending: Rs. ${pendingAfter.toFixed(2)}.`,
-      type: "TAILOR_PAYOUT_PAID",
-      link: "/tailor/account",
-    })
+    try {
+      await createOrderNotification({
+        userId: assignment.tailor.id,
+        title: "Payout credited",
+        message: `Rs. ${payableAmount.toFixed(2)} paid for ${assignment.stitchingOrder.stitchingService}. Pending: Rs. ${pendingAfter.toFixed(2)}.`,
+        type: "TAILOR_PAYOUT_PAID",
+        link: "/tailor/account",
+      })
+    } catch (notificationError) {
+      console.error("[admin/tailor-accounts/payout/post][order-notification]", notificationError)
+    }
 
     return NextResponse.json({
       ok: true,
@@ -143,7 +151,8 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("[admin/tailor-accounts/payout/post]", error)
-    return NextResponse.json({ error: "Failed to record payout payment" }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: "Failed to record payout payment", detail: errorMessage }, { status: 500 })
   }
 }
 

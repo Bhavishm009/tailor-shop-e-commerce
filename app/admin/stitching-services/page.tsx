@@ -180,7 +180,7 @@ export default function AdminStitchingServicesPage() {
 
       <Card className="p-4 md:p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search key/category/name" className="w-full sm:max-w-md" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search key/category/name" className="w-full lg:max-w-2xl" />
           <select className="h-10 rounded-md border bg-background px-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")}>
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active</option>

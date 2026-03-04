@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { MediaUploader } from "@/components/media-uploader"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type ProductMasterType = "CATEGORY" | "SUBCATEGORY" | "CLOTH_TYPE" | "MATERIAL" | "SIZE" | "COLOR"
 type MasterItem = {
@@ -245,7 +246,18 @@ export function ProductForm({ productId }: ProductFormProps) {
     }
   }
 
-  if (loading) return <div className="p-8 text-muted-foreground">Loading product...</div>
+  if (loading) {
+    return (
+      <div className="p-8">
+        <Card className="space-y-3 p-6">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-44 w-full" />
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 md:p-8 space-y-6">

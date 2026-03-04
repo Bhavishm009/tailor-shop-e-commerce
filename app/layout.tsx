@@ -7,6 +7,7 @@ import { NotificationPermissionPrompt } from "@/components/notification-permissi
 import { PWARegister } from "@/components/pwa-register"
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt"
 import { PushAutoSync } from "@/components/push-auto-sync"
+import { getServerLanguage } from "@/lib/i18n-server"
 import "./globals.css"
 
 const manrope = Manrope({
@@ -53,6 +54,19 @@ export const metadata: Metadata = {
   generator: "v0.app",
   alternates: {
     canonical: "/",
+    languages: {
+      "en-IN": "/?lang=en",
+      "hi-IN": "/?lang=hi",
+      "mr-IN": "/?lang=mr",
+      "bn-IN": "/?lang=bn",
+      "ta-IN": "/?lang=ta",
+      "te-IN": "/?lang=te",
+      "gu-IN": "/?lang=gu",
+      "kn-IN": "/?lang=kn",
+      "ml-IN": "/?lang=ml",
+      "pa-IN": "/?lang=pa",
+      "x-default": "/",
+    },
   },
   robots: {
     index: true,
@@ -73,6 +87,7 @@ export const metadata: Metadata = {
     siteName: "TailorHub",
     url: "/",
     locale: "en_US",
+    alternateLocale: ["hi_IN", "mr_IN", "bn_IN", "ta_IN", "te_IN", "gu_IN", "kn_IN", "ml_IN", "pa_IN"],
     images: [
       {
         url: "/opengraph-image",
@@ -121,19 +136,42 @@ export const viewport: Viewport = {
   colorScheme: "light dark",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const lang = await getServerLanguage()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "TailorHub",
+    url: siteUrl,
+    logo: `${siteUrl}/icon.svg`,
+  }
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "TailorHub",
+    url: siteUrl,
+    inLanguage: ["en-IN", "hi-IN", "mr-IN", "bn-IN", "ta-IN", "te-IN", "gu-IN", "kn-IN", "ml-IN", "pa-IN"],
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteUrl}/search?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  }
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={lang} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
       </head>
       <body className={`${manrope.variable} ${sora.variable} font-sans antialiased`}>
-        <Providers>
+        <Providers initialLanguage={lang}>
           {children}
           <PwaInstallPrompt />
           <NotificationPermissionPrompt />

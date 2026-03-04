@@ -359,7 +359,7 @@ export default function AdminProductsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name/category/material"
-            className="w-full sm:max-w-md"
+            className="w-full lg:max-w-2xl"
           />
           <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
             Filters
@@ -477,7 +477,9 @@ export default function AdminProductsPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           {product.image ? (
-                            <Image src={product.image} alt={product.name} width={96} height={60} className="h-12 w-20 rounded object-cover" />
+                            <div className="relative aspect-video w-24 overflow-hidden rounded border bg-muted/30">
+                              <Image src={product.image} alt={product.name} fill className="object-contain" />
+                            </div>
                           ) : null}
                           <div className="space-y-1">
                             <p className="font-medium">{product.name}</p>

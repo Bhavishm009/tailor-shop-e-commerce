@@ -13,6 +13,8 @@ import { WishlistToggleButton } from "@/components/wishlist-toggle-button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductRailCarousel } from "@/components/product-rail-carousel"
 import { ProductReviewsSection } from "@/components/product-reviews-section"
+import { getServerDictionary, getServerLanguage } from "@/lib/i18n-server"
+import { getLocalizedText, localizeCatalogLabel } from "@/lib/localize"
 
 type ProductDetailsProps = {
   params: Promise<{ id: string }>
@@ -108,6 +110,7 @@ export async function generateMetadata({ params, searchParams }: ProductDetailsP
 export default async function ProductDetailsPage({ params, searchParams }: ProductDetailsProps) {
   const { id } = await params
   const query = await searchParams
+  const [dict, lang] = await Promise.all([getServerDictionary(), getServerLanguage()])
   const product = await getProduct(id)
 
   if (!product) {
@@ -247,6 +250,8 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
   const querySize = (query.size || "").trim()
   const selectedColor = colors.includes(queryColor) ? queryColor : ""
   const selectedSize = sizes.includes(querySize) ? querySize : ""
+  const localizedName = getLocalizedText(product.name, lang, product.name)
+  const localizedDescription = getLocalizedText(product.description, lang, product.description || dict.common.noDescription)
 
   const buildVariantHref = (next: { color?: string; size?: string }) => {
     const queryString = new URLSearchParams()
@@ -262,9 +267,9 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: baseUrl },
-      { "@type": "ListItem", position: 2, name: "Products", item: `${baseUrl}/products` },
-      { "@type": "ListItem", position: 3, name: product.name, item: canonicalPath },
+      { "@type": "ListItem", position: 1, name: dict.common.home, item: baseUrl },
+      { "@type": "ListItem", position: 2, name: dict.common.products, item: `${baseUrl}/products` },
+      { "@type": "ListItem", position: 3, name: localizedName, item: canonicalPath },
     ],
   }
 
@@ -309,6 +314,34 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
       }
       : null
 
+  const relatedCarouselSchema =
+    related.length > 0
+      ? {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        name: "Related Products Carousel",
+        itemListElement: related.map((item, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `${baseUrl}/products/${item.id}`,
+        })),
+      }
+      : null
+
+  const recommendedCarouselSchema =
+    recommended.length > 0
+      ? {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        name: "Recommended Products Carousel",
+        itemListElement: recommended.map((item, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `${baseUrl}/products/${item.id}`,
+        })),
+      }
+      : null
+
   return (
     <main className="min-h-screen bg-background">
       <GlobalNavbar />
@@ -316,47 +349,53 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
         {faqSchema ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} /> : null}
+        {relatedCarouselSchema ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(relatedCarouselSchema) }} />
+        ) : null}
+        {recommendedCarouselSchema ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(recommendedCarouselSchema) }} />
+        ) : null}
 
         <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
           <ol className="flex flex-wrap items-center gap-2">
             <li>
               <Link href="/" className="hover:text-primary hover:underline">
-                Home
+                {dict.common.home}
               </Link>
             </li>
             <li>/</li>
             <li>
               <Link href="/products" className="hover:text-primary hover:underline">
-                Products
+                {dict.common.products}
               </Link>
             </li>
             <li>/</li>
-            <li className="text-foreground truncate">{product.name}</li>
+            <li className="text-foreground truncate">{localizedName}</li>
           </ol>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-6 xl:gap-8">
           <Card className="p-4 md:p-5 shadow-sm">
-            <ProductMediaCarousel images={images} videos={videos} productName={product.name} />
+            <ProductMediaCarousel images={images} videos={videos} productName={localizedName} />
           </Card>
 
           <Card className="p-6 md:p-7 space-y-6 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="secondary">{product.category}</Badge>
-              {product.clothType ? <Badge variant="outline">{product.clothType}</Badge> : null}
-              {product.material ? <Badge variant="outline">{product.material}</Badge> : null}
+              <Badge variant="secondary">{localizeCatalogLabel(product.category, lang) || product.category}</Badge>
+              {product.clothType ? <Badge variant="outline">{localizeCatalogLabel(product.clothType, lang) || product.clothType}</Badge> : null}
+              {product.material ? <Badge variant="outline">{localizeCatalogLabel(product.material, lang) || product.material}</Badge> : null}
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{product.name}</h1>
-              <p className="text-muted-foreground leading-relaxed">{product.description || "No description available."}</p>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{localizedName}</h1>
+              <p className="text-muted-foreground leading-relaxed">{localizedDescription}</p>
             </div>
 
             <div className="rounded-lg border bg-muted/20 p-4 grid grid-cols-2 gap-3 text-sm">
-              <p>Material: {product.material || "N/A"}</p>
-              <p>Color: {selectedColor || product.color || "N/A"}</p>
-              <p>Size: {selectedSize || product.size || "N/A"}</p>
-              <p>Stock: {product.stock}</p>
+              <p>{dict.common.material}: {localizeCatalogLabel(product.material, lang) || product.material || dict.common.na}</p>
+              <p>{dict.common.color}: {localizeCatalogLabel(selectedColor || product.color, lang) || selectedColor || product.color || dict.common.na}</p>
+              <p>{dict.common.size}: {selectedSize || product.size || dict.common.na}</p>
+              <p>{dict.common.stock}: {product.stock}</p>
             </div>
 
             {colors.length > 0 ? (
@@ -376,7 +415,7 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
                       className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${selectedColor === entry ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"
                         }`}
                     >
-                      {entry}
+                      {localizeCatalogLabel(entry, lang) || entry}
                     </Link>
                   ))}
                 </div>
@@ -418,15 +457,15 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
             <div className="space-y-3">
               <p className="text-3xl font-bold tracking-tight">Rs. {product.price.toFixed(2)}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <AddToCartButton
+                  <AddToCartButton
                   className="w-full"
                   id={product.id}
-                  name={product.name}
+                  name={localizedName}
                   price={product.price}
                   image={images[0] || null}
                   stock={product.stock}
                 />
-                <WishlistToggleButton id={product.id} name={product.name} price={product.price} image={images[0] || null} />
+                <WishlistToggleButton id={product.id} name={localizedName} price={product.price} image={images[0] || null} />
               </div>
             </div>
           </Card>

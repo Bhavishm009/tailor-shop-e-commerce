@@ -11,6 +11,8 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
+import { useI18n } from "@/components/i18n-provider"
+import { localizeCatalogLabel } from "@/lib/localize"
 
 type Props = {
   q: string
@@ -30,12 +32,14 @@ type Props = {
 }
 
 export function ProductsMobileFilter(props: Props) {
+  const { dictionary, language } = useI18n()
+
   return (
     <div className="lg:hidden">
       <Drawer direction="bottom">
         <DrawerTrigger asChild>
           <Button className="w-full" type="button">
-            Open Filters
+            {dictionary.common.filters}
           </Button>
         </DrawerTrigger>
         <DrawerContent>
@@ -44,41 +48,41 @@ export function ProductsMobileFilter(props: Props) {
             <DrawerDescription>Set filters and apply from bottom sheet.</DrawerDescription>
           </DrawerHeader>
           <form action="/products" className="p-4 grid grid-cols-1 gap-3">
-            <input name="q" defaultValue={props.q} placeholder="Search" className="h-10 rounded-md border bg-background px-3" />
+            <input name="q" defaultValue={props.q} placeholder={dictionary.productsPage.searchPlaceholder} className="h-10 rounded-md border bg-background px-3" />
             <select name="category" defaultValue={props.category} className="h-10 rounded-md border bg-background px-3">
-              <option value="">All Categories</option>
+              <option value="">{dictionary.common.allCategories}</option>
               {props.categories.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {localizeCatalogLabel(item, language) || item}
                 </option>
               ))}
             </select>
             <select name="material" defaultValue={props.material} className="h-10 rounded-md border bg-background px-3">
-              <option value="">All Materials</option>
+              <option value="">{dictionary.common.allMaterials}</option>
               {props.materials.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {localizeCatalogLabel(item, language) || item}
                 </option>
               ))}
             </select>
             <select name="clothType" defaultValue={props.clothType} className="h-10 rounded-md border bg-background px-3">
-              <option value="">All Cloth Types</option>
+              <option value="">{dictionary.common.allClothTypes}</option>
               {props.clothTypes.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {localizeCatalogLabel(item, language) || item}
                 </option>
               ))}
             </select>
             <select name="color" defaultValue={props.color} className="h-10 rounded-md border bg-background px-3">
-              <option value="">All Colors</option>
+              <option value="">{dictionary.common.allColors}</option>
               {props.colors.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {localizeCatalogLabel(item, language) || item}
                 </option>
               ))}
             </select>
             <select name="size" defaultValue={props.size} className="h-10 rounded-md border bg-background px-3">
-              <option value="">All Sizes</option>
+              <option value="">{dictionary.common.allSizes}</option>
               {props.sizes.map((item) => (
                 <option key={item} value={item}>
                   {item}
@@ -86,20 +90,20 @@ export function ProductsMobileFilter(props: Props) {
               ))}
             </select>
             <div className="grid grid-cols-2 gap-2">
-              <input name="min" type="number" min="0" defaultValue={props.min} placeholder="Min Price" className="h-10 rounded-md border bg-background px-3" />
-              <input name="max" type="number" min="0" defaultValue={props.max} placeholder="Max Price" className="h-10 rounded-md border bg-background px-3" />
+              <input name="min" type="number" min="0" defaultValue={props.min} placeholder={dictionary.productsPage.minPrice} className="h-10 rounded-md border bg-background px-3" />
+              <input name="max" type="number" min="0" defaultValue={props.max} placeholder={dictionary.productsPage.maxPrice} className="h-10 rounded-md border bg-background px-3" />
             </div>
             <select name="sort" defaultValue={props.sort} className="h-10 rounded-md border bg-background px-3">
-              <option value="newest">Newest</option>
-              <option value="price_asc">Price: Low to High</option>
-              <option value="price_desc">Price: High to Low</option>
-              <option value="name_asc">Name: A-Z</option>
+              <option value="newest">{dictionary.common.newest}</option>
+              <option value="price_asc">{dictionary.common.priceLowToHigh}</option>
+              <option value="price_desc">{dictionary.common.priceHighToLow}</option>
+              <option value="name_asc">{dictionary.common.nameAZ}</option>
             </select>
             <DrawerFooter className="px-0">
-              <Button type="submit">Apply Filters</Button>
+              <Button type="submit">{dictionary.common.applyFilters}</Button>
               <DrawerClose asChild>
                 <Button type="button" variant="outline">
-                  Close
+                  {dictionary.common.close}
                 </Button>
               </DrawerClose>
             </DrawerFooter>

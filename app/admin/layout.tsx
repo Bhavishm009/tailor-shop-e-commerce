@@ -4,6 +4,7 @@ import type React from "react"
 
 import { signOut } from "next-auth/react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
@@ -25,6 +26,8 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+  const currentPath = pathname ?? ""
   const { session, isLoading } = useAuth("ADMIN")
   const isMobile = useIsMobile()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -144,11 +147,14 @@ export default function AdminLayout({
             <nav className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon
+                const isActive =
+                  currentPath === item.href ||
+                  (currentPath.startsWith(`${item.href}/`) && item.href !== "/admin/dashboard")
                 return (
                   <Link key={item.href} href={item.href}>
                     <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3"
+                      variant={isActive ? "secondary" : "ghost"}
+                      className={`w-full justify-start gap-3 ${isActive ? "font-semibold" : ""}`}
                       onClick={() => setMobileSidebarOpen(false)}
                     >
                       <Icon className="w-5 h-5" />

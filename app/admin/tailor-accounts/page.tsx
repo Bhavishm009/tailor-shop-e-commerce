@@ -302,7 +302,7 @@ export default function AdminTailorAccountsPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search tailor/order/service"
-                className="w-full sm:max-w-sm"
+                className="w-full lg:max-w-2xl"
               />
               <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
                 Filters

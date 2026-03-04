@@ -369,7 +369,7 @@ export default function TailorsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search tailor/email/specializations"
-            className="w-full sm:max-w-md"
+            className="w-full lg:max-w-2xl"
           />
           <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
             Filters

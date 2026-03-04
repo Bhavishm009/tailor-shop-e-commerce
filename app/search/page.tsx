@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { GlobalNavbar } from "@/components/global-navbar"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { scoreBlogSearch, scoreProductSearch } from "@/lib/search-ranking"
 import {
   Pagination,
   PaginationContent,
@@ -26,6 +27,8 @@ type SearchPageProps = {
 }
 
 const PAGE_SIZE = 9
+const SEARCH_CANDIDATE_LIMIT = 350
+const SEARCH_FALLBACK_LIMIT = 500
 
 const toStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) return []
@@ -55,6 +58,112 @@ function getPaginationSlots(currentPage: number, totalPages: number): Array<numb
   slots.push(totalPages)
 
   return slots
+}
+
+function tokenizeQuery(input: string) {
+  return input.toLowerCase().trim().split(/\s+/).filter(Boolean)
+}
+
+function buildProductCandidateWhere(query: string) {
+  const tokens = Array.from(new Set(tokenizeQuery(query))).slice(0, 5)
+  const tokenClauses = tokens.flatMap((token) => [
+    { name: { contains: token, mode: "insensitive" as const } },
+    { description: { contains: token, mode: "insensitive" as const } },
+    { category: { contains: token, mode: "insensitive" as const } },
+    { material: { contains: token, mode: "insensitive" as const } },
+    { clothType: { contains: token, mode: "insensitive" as const } },
+  ])
+
+  return {
+    isActive: true,
+    OR: [
+      { name: { contains: query, mode: "insensitive" as const } },
+      { description: { contains: query, mode: "insensitive" as const } },
+      { category: { contains: query, mode: "insensitive" as const } },
+      { material: { contains: query, mode: "insensitive" as const } },
+      { clothType: { contains: query, mode: "insensitive" as const } },
+      ...tokenClauses,
+    ],
+  }
+}
+
+function buildBlogCandidateWhere(query: string) {
+  const tokens = Array.from(new Set(tokenizeQuery(query))).slice(0, 5)
+  const tokenClauses = tokens.flatMap((token) => [
+    { title: { contains: token, mode: "insensitive" as const } },
+    { excerpt: { contains: token, mode: "insensitive" as const } },
+    { category: { contains: token, mode: "insensitive" as const } },
+    { contentHtml: { contains: token, mode: "insensitive" as const } },
+  ])
+
+  return {
+    isPublished: true,
+    OR: [
+      { title: { contains: query, mode: "insensitive" as const } },
+      { excerpt: { contains: query, mode: "insensitive" as const } },
+      { category: { contains: query, mode: "insensitive" as const } },
+      { contentHtml: { contains: query, mode: "insensitive" as const } },
+      ...tokenClauses,
+    ],
+  }
+}
+
+async function getRankedProducts(query: string) {
+  let candidates = await db.product.findMany({
+    where: buildProductCandidateWhere(query),
+    orderBy: { createdAt: "desc" },
+    take: SEARCH_CANDIDATE_LIMIT,
+  })
+
+  if (candidates.length < 20) {
+    const fallback = await db.product.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" },
+      take: SEARCH_FALLBACK_LIMIT,
+    })
+    const seen = new Set(candidates.map((product) => product.id))
+    for (const product of fallback) {
+      if (!seen.has(product.id)) candidates.push(product)
+    }
+  }
+
+  return candidates
+    .map((product) => ({ product, score: scoreProductSearch(product, query) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return new Date(b.product.createdAt).getTime() - new Date(a.product.createdAt).getTime()
+    })
+    .map((item) => item.product)
+}
+
+async function getRankedBlogs(query: string) {
+  let candidates = await db.blogPost.findMany({
+    where: buildBlogCandidateWhere(query),
+    orderBy: { createdAt: "desc" },
+    take: SEARCH_CANDIDATE_LIMIT,
+  })
+
+  if (candidates.length < 20) {
+    const fallback = await db.blogPost.findMany({
+      where: { isPublished: true },
+      orderBy: { createdAt: "desc" },
+      take: SEARCH_FALLBACK_LIMIT,
+    })
+    const seen = new Set(candidates.map((post) => post.id))
+    for (const post of fallback) {
+      if (!seen.has(post.id)) candidates.push(post)
+    }
+  }
+
+  return candidates
+    .map((post) => ({ post, score: scoreBlogSearch(post, query) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime()
+    })
+    .map((item) => item.post)
 }
 
 export async function generateMetadata({ searchParams }: SearchPageProps): Promise<Metadata> {
@@ -241,37 +350,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     )
   }
 
-  const productWhere = {
-    isActive: true,
-    OR: [
-      { name: { contains: q, mode: "insensitive" as const } },
-      { description: { contains: q, mode: "insensitive" as const } },
-      { category: { contains: q, mode: "insensitive" as const } },
-      { material: { contains: q, mode: "insensitive" as const } },
-      { clothType: { contains: q, mode: "insensitive" as const } },
-    ],
-  }
-
-  const blogWhere = {
-    isPublished: true,
-    OR: [
-      { title: { contains: q, mode: "insensitive" as const } },
-      { excerpt: { contains: q, mode: "insensitive" as const } },
-      { category: { contains: q, mode: "insensitive" as const } },
-      { contentHtml: { contains: q, mode: "insensitive" as const } },
-    ],
-  }
-
   if (type === "products") {
-    const total = await db.product.count({ where: productWhere })
+    const rankedProducts = await getRankedProducts(q)
+
+    const total = rankedProducts.length
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
     const safePage = Math.min(page, totalPages)
-    const products = await db.product.findMany({
-      where: productWhere,
-      orderBy: { createdAt: "desc" },
-      skip: (safePage - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    })
+    const products = rankedProducts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
     const slots = getPaginationSlots(safePage, totalPages)
 
     return (
@@ -358,15 +443,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   }
 
   if (type === "blogs") {
-    const total = await db.blogPost.count({ where: blogWhere })
+    const rankedBlogs = await getRankedBlogs(q)
+
+    const total = rankedBlogs.length
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
     const safePage = Math.min(page, totalPages)
-    const blogs = await db.blogPost.findMany({
-      where: blogWhere,
-      orderBy: { createdAt: "desc" },
-      skip: (safePage - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    })
+    const blogs = rankedBlogs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
     const slots = getPaginationSlots(safePage, totalPages)
 
     return (
@@ -446,20 +528,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     )
   }
 
-  const [products, blogs, totalProducts, totalBlogs] = await Promise.all([
-    db.product.findMany({
-      where: productWhere,
-      orderBy: { createdAt: "desc" },
-      take: 6,
-    }),
-    db.blogPost.findMany({
-      where: blogWhere,
-      orderBy: { createdAt: "desc" },
-      take: 6,
-    }),
-    db.product.count({ where: productWhere }),
-    db.blogPost.count({ where: blogWhere }),
-  ])
+  const [rankedProducts, rankedBlogs] = await Promise.all([getRankedProducts(q), getRankedBlogs(q)])
+
+  const totalProducts = rankedProducts.length
+  const totalBlogs = rankedBlogs.length
+  const products = rankedProducts.slice(0, 6)
+  const blogs = rankedBlogs.slice(0, 6)
 
   return (
     <main className="min-h-screen bg-background">

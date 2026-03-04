@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { ProductsMobileFilter } from "@/components/products-mobile-filter"
 import { ProductListingCard } from "@/components/product-listing-card"
+import { getServerDictionary, getServerLanguage } from "@/lib/i18n-server"
+import { localizeCatalogLabel } from "@/lib/localize"
 import {
   Pagination,
   PaginationContent,
@@ -157,6 +159,7 @@ export async function generateMetadata({ searchParams }: ProductsPageProps): Pro
 }
 
 export default async function PublicProductsPage({ searchParams }: ProductsPageProps) {
+  const [dict, lang] = await Promise.all([getServerDictionary(), getServerLanguage()])
   const parsed = parseParams(await searchParams)
   const { q, category, material, clothType, color, size, min, max, page, sort } = parsed
 
@@ -226,13 +229,55 @@ export default async function PublicProductsPage({ searchParams }: ProductsPageP
     return `/products${query.toString() ? `?${query}` : ""}`
   }
 
+  const collectionPageSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: dict.productsPage.title,
+    description: dict.productsPage.subtitle,
+    url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}${buildHref({})}`,
+  }
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: dict.common.home, item: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}` },
+      { "@type": "ListItem", position: 2, name: dict.common.products, item: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/products` },
+    ],
+  }
+  const productsListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `${dict.common.products} - Page ${safePage}`,
+    numberOfItems: products.length,
+    itemListElement: products.map((product, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/products/${product.id}`,
+      item: {
+        "@type": "Product",
+        name: product.name,
+        image: product.image || undefined,
+        offers: {
+          "@type": "Offer",
+          priceCurrency: "INR",
+          price: product.price,
+          availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/products/${product.id}`,
+        },
+      },
+    })),
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <GlobalNavbar />
       <section className="max-w-7xl mx-auto px-4 py-10 space-y-6">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionPageSchema) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productsListSchema) }} />
         <div className="space-y-2">
-          <h1 className="text-2xl md:text-4xl font-bold">Clothing Store</h1>
-          <p className="text-muted-foreground">Find outfits by cloth type, color, category, size, and budget.</p>
+          <h1 className="text-2xl md:text-4xl font-bold">{dict.productsPage.title}</h1>
+          <p className="text-muted-foreground">{dict.productsPage.subtitle}</p>
         </div>
 
         <ProductsMobileFilter
@@ -255,43 +300,43 @@ export default async function PublicProductsPage({ searchParams }: ProductsPageP
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
           <aside className="hidden lg:block">
             <Card className="p-4 sticky top-24 space-y-3">
-              <h2 className="font-semibold">Filters</h2>
+              <h2 className="font-semibold">{dict.common.filters}</h2>
               <form action="/products" className="space-y-3">
-                <input name="q" defaultValue={q} placeholder="Search" className="h-10 w-full rounded-md border bg-background px-3" />
+                <input name="q" defaultValue={q} placeholder={dict.productsPage.searchPlaceholder} className="h-10 w-full rounded-md border bg-background px-3" />
                 <select name="category" defaultValue={category} className="h-10 w-full rounded-md border bg-background px-3">
-                  <option value="">All Categories</option>
+                  <option value="">{dict.common.allCategories}</option>
                   {categories.map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {localizeCatalogLabel(item, lang) || item}
                     </option>
                   ))}
                 </select>
                 <select name="material" defaultValue={material} className="h-10 w-full rounded-md border bg-background px-3">
-                  <option value="">All Materials</option>
+                  <option value="">{dict.common.allMaterials}</option>
                   {materials.map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {localizeCatalogLabel(item, lang) || item}
                     </option>
                   ))}
                 </select>
                 <select name="clothType" defaultValue={clothType} className="h-10 w-full rounded-md border bg-background px-3">
-                  <option value="">All Cloth Types</option>
+                  <option value="">{dict.common.allClothTypes}</option>
                   {clothTypes.map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {localizeCatalogLabel(item, lang) || item}
                     </option>
                   ))}
                 </select>
                 <select name="color" defaultValue={color} className="h-10 w-full rounded-md border bg-background px-3">
-                  <option value="">All Colors</option>
+                  <option value="">{dict.common.allColors}</option>
                   {colors.map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {localizeCatalogLabel(item, lang) || item}
                     </option>
                   ))}
                 </select>
                 <select name="size" defaultValue={size} className="h-10 w-full rounded-md border bg-background px-3">
-                  <option value="">All Sizes</option>
+                  <option value="">{dict.common.allSizes}</option>
                   {sizes.map((item) => (
                     <option key={item} value={item}>
                       {item}
@@ -299,17 +344,17 @@ export default async function PublicProductsPage({ searchParams }: ProductsPageP
                   ))}
                 </select>
                 <div className="grid grid-cols-2 gap-2">
-                  <input name="min" type="number" min="0" defaultValue={min?.toString() || ""} placeholder="Min" className="h-10 rounded-md border bg-background px-3" />
-                  <input name="max" type="number" min="0" defaultValue={max?.toString() || ""} placeholder="Max" className="h-10 rounded-md border bg-background px-3" />
+                  <input name="min" type="number" min="0" defaultValue={min?.toString() || ""} placeholder={dict.productsPage.minPrice} className="h-10 rounded-md border bg-background px-3" />
+                  <input name="max" type="number" min="0" defaultValue={max?.toString() || ""} placeholder={dict.productsPage.maxPrice} className="h-10 rounded-md border bg-background px-3" />
                 </div>
                 <select name="sort" defaultValue={sort} className="h-10 w-full rounded-md border bg-background px-3">
-                  <option value="newest">Newest</option>
-                  <option value="price_asc">Price: Low to High</option>
-                  <option value="price_desc">Price: High to Low</option>
-                  <option value="name_asc">Name: A-Z</option>
+                  <option value="newest">{dict.common.newest}</option>
+                  <option value="price_asc">{dict.common.priceLowToHigh}</option>
+                  <option value="price_desc">{dict.common.priceHighToLow}</option>
+                  <option value="name_asc">{dict.common.nameAZ}</option>
                 </select>
                 <button type="submit" className="h-10 w-full rounded-md bg-primary text-primary-foreground">
-                  Apply Filters
+                  {dict.common.applyFilters}
                 </button>
               </form>
             </Card>
@@ -320,8 +365,8 @@ export default async function PublicProductsPage({ searchParams }: ProductsPageP
               <Card className="p-0">
                 <Empty className="border-0 p-10">
                   <EmptyHeader>
-                    <EmptyTitle>No products found</EmptyTitle>
-                    <EmptyDescription>Try adjusting your filters or search terms.</EmptyDescription>
+                    <EmptyTitle>{dict.productsPage.noProductsTitle}</EmptyTitle>
+                    <EmptyDescription>{dict.productsPage.noProductsDesc}</EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               </Card>
@@ -350,7 +395,7 @@ export default async function PublicProductsPage({ searchParams }: ProductsPageP
 
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing page {safePage} of {totalPages} ({total} items)
+                {dict.productsPage.showingPage} {safePage} of {totalPages} ({total} items)
               </p>
             </div>
 

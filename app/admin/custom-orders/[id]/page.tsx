@@ -8,6 +8,7 @@ import { jsPDF } from "jspdf"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ChevronLeft, Download } from "lucide-react"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { OrderChatPanel } from "@/components/order-chat-panel"
@@ -408,7 +409,15 @@ export default function AdminCustomOrderDetailPage() {
   if (loading) {
     return (
       <div className="p-4 md:p-8">
-        <Card className="p-6 text-muted-foreground">Loading custom order...</Card>
+        <Card className="space-y-3 p-6">
+          <Skeleton className="h-6 w-52" />
+          <Skeleton className="h-5 w-72" />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-20 w-full" />
+            ))}
+          </div>
+        </Card>
       </div>
     )
   }

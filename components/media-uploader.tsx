@@ -159,9 +159,11 @@ export function MediaUploader({ value, onChange, folder = "/tailorhub/products" 
             {pendingPreviews.map((item, index) => (
               <div key={`${item.kind}-${item.url}-${index}`} className="border rounded-md p-2 space-y-2 opacity-80">
                 {item.kind === "image" ? (
-                  <img src={item.url} alt="Pending upload" className="h-32 w-full rounded object-cover" />
+                  <div className="overflow-hidden rounded bg-muted/30">
+                    <img src={item.url} alt="Pending upload" className="aspect-video w-full object-contain" />
+                  </div>
                 ) : (
-                  <video src={item.url} controls className="h-32 w-full rounded object-cover bg-black" />
+                  <video src={item.url} controls className="aspect-video w-full rounded object-contain bg-black" />
                 )}
                 <p className="text-xs text-muted-foreground uppercase">{item.kind} - uploading...</p>
               </div>
@@ -174,9 +176,11 @@ export function MediaUploader({ value, onChange, folder = "/tailorhub/products" 
           {value.map((item) => (
             <div key={`${item.kind}-${item.url}`} className="border rounded-md p-2 space-y-2">
               {item.kind === "image" ? (
-                <img src={item.url} alt="Media" className="h-32 w-full rounded object-cover" />
+                <div className="overflow-hidden rounded bg-muted/30">
+                  <img src={item.url} alt="Media" className="aspect-video w-full object-contain" />
+                </div>
               ) : (
-                <video src={item.url} controls className="h-32 w-full rounded object-cover bg-black" />
+                <video src={item.url} controls className="aspect-video w-full rounded object-contain bg-black" />
               )}
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground uppercase">{item.kind}</p>

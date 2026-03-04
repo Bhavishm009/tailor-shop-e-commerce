@@ -481,7 +481,7 @@ export default function UsersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name/email/role"
-            className="w-full sm:max-w-md"
+            className="w-full lg:max-w-2xl"
           />
           <Button type="button" variant="outline" onClick={() => setIsFilterModalOpen(true)}>
             Filters

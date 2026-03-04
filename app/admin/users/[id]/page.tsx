@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ChevronLeft } from "lucide-react"
 
@@ -150,7 +151,15 @@ export default function AdminUserDetailPage() {
   if (loading) {
     return (
       <div className="p-4 md:p-8">
-        <Card className="p-6 text-muted-foreground">Loading user details...</Card>
+        <Card className="space-y-3 p-6">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-5 w-72" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-16 w-full" />
+            ))}
+          </div>
+        </Card>
       </div>
     )
   }
@@ -330,4 +339,3 @@ export default function AdminUserDetailPage() {
     </div>
   )
 }
-
