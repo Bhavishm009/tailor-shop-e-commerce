@@ -8,6 +8,24 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     if (response || !session) return response
 
     const { id } = await params
+    const existing = await db.measurement.findFirst({
+      where: {
+        id,
+        userId: session.user.id,
+      },
+      select: {
+        id: true,
+        isVerified: true,
+      },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: "Measurement not found" }, { status: 404 })
+    }
+    if (existing.isVerified) {
+      return NextResponse.json({ error: "Verified measurement cannot be deleted." }, { status: 400 })
+    }
+
     const deleted = await db.measurement.deleteMany({
       where: {
         id,
@@ -15,14 +33,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       },
     })
 
-    if (deleted.count === 0) {
-      return NextResponse.json({ error: "Measurement not found" }, { status: 404 })
-    }
-
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[measurements/delete]", error)
     return NextResponse.json({ error: "Failed to delete measurement" }, { status: 500 })
   }
 }
-

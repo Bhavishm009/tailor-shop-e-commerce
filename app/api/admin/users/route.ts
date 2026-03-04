@@ -43,8 +43,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { response } = await requireRole("ADMIN")
-    if (response) return response
+    const { session, response } = await requireRole("ADMIN")
+    if (response || !session) return response
 
     const body = (await request.json()) as {
       name?: string
@@ -58,6 +58,16 @@ export async function POST(request: Request) {
         state?: string
         postalCode?: string
         country?: string
+      }
+      measurement?: {
+        name?: string
+        notes?: string
+        chest?: number | string
+        waist?: number | string
+        hip?: number | string
+        shoulder?: number | string
+        sleeveLength?: number | string
+        garmentLength?: number | string
       }
     }
 
@@ -107,6 +117,11 @@ export async function POST(request: Request) {
 
     const hashedPassword = await generateSystemPasswordHash()
     const user = await db.$transaction(async (tx) => {
+      const asNumber = (value: unknown) => {
+        const parsed = Number(value)
+        return Number.isFinite(parsed) ? parsed : undefined
+      }
+
       const createdUser = await tx.user.create({
         data: {
           name,
@@ -146,6 +161,26 @@ export async function POST(request: Request) {
           isDefault: true,
         },
       })
+
+      if (createdUser.role === "CUSTOMER" && body.measurement?.name?.trim()) {
+        await tx.measurement.create({
+          data: {
+            userId: createdUser.id,
+            name: body.measurement.name.trim(),
+            notes: body.measurement.notes?.trim() || "Added and verified by admin",
+            isVerified: true,
+            source: "ADMIN",
+            verifiedByAdminId: session.user.id,
+            verifiedAt: new Date(),
+            chest: asNumber(body.measurement.chest),
+            waist: asNumber(body.measurement.waist),
+            hip: asNumber(body.measurement.hip),
+            shoulder: asNumber(body.measurement.shoulder),
+            sleeveLength: asNumber(body.measurement.sleeveLength),
+            garmentLength: asNumber(body.measurement.garmentLength),
+          },
+        })
+      }
 
       return createdUser
     })

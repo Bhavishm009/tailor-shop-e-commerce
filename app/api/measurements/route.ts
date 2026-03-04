@@ -55,6 +55,8 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         name: body.name.trim(),
         notes: body.notes || null,
+        isVerified: false,
+        source: "CUSTOMER",
         measurementType: body.measurementType || null,
         measurementData,
         chest: body.chest ?? asNumber(measurementData.chest),

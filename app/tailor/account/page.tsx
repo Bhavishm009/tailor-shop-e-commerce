@@ -7,6 +7,7 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { Button } from "@/components/ui/button"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type TailorAccount = {
   id: string
@@ -62,7 +63,17 @@ export default function TailorAccountPage() {
     void load()
   }, [])
 
-  if (loading) return <div className="p-4 md:p-8"><Card className="p-4 text-muted-foreground">Loading...</Card></div>
+  if (loading) {
+    return (
+      <div className="p-4 md:p-8">
+        <Card className="p-4 space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-5 w-full" />
+          ))}
+        </Card>
+      </div>
+    )
+  }
   if (!data) return <div className="p-4 md:p-8"><Card className="p-4 text-muted-foreground">No account data available.</Card></div>
 
   const orderStatuses = Array.from(new Set(data.assignments.map((assignment) => assignment.stitchingOrder.status))).sort()

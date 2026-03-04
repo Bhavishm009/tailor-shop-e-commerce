@@ -9,6 +9,7 @@ import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { RowActionsMenu } from "@/components/admin/row-actions-menu"
 import {
   Table,
   TableBody,
@@ -233,9 +234,18 @@ export default function AdminStitchingServicesPage() {
                       <Badge variant={service.isActive ? "default" : "secondary"}>{service.isActive ? "ACTIVE" : "INACTIVE"}</Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-end gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => openEdit(service)}>Edit</Button>
-                        <Button type="button" variant="destructive" size="sm" onClick={() => onDelete(service.id)}>Delete</Button>
+                      <div className="flex items-center justify-end">
+                        <RowActionsMenu
+                          items={[
+                            { label: "Edit", onSelect: () => openEdit(service) },
+                            {
+                              label: "Delete",
+                              onSelect: () => void onDelete(service.id),
+                              destructive: true,
+                              separatorBefore: true,
+                            },
+                          ]}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>

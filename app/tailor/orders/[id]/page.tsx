@@ -19,6 +19,11 @@ type TailorOrderDetail = {
   }
   stitchingService: string
   clothType: string
+  clothSource?: "OWN" | "FROM_US"
+  clothName?: string | null
+  clothPrice?: number
+  stitchingPrice?: number
+  totalPrice?: number
   status: "ASSIGNED" | "STITCHING" | "QC" | "COMPLETED" | "DELIVERED" | "CANCELLED" | "PENDING"
   notes?: string | null
   fabricImage?: string | null
@@ -156,6 +161,12 @@ export default function TailorOrderDetailPage() {
             <p className="text-xs text-muted-foreground">Cloth Type</p>
             <p className="font-semibold mt-1">{order.clothType}</p>
           </Card>
+          <Card className="p-4">
+            <p className="text-xs text-muted-foreground">Cloth Source</p>
+            <p className="font-semibold mt-1">
+              {order.clothSource === "FROM_US" ? `From TailorHub${order.clothName ? ` (${order.clothName})` : ""}` : "Own Cloth"}
+            </p>
+          </Card>
         </div>
       </Card>
 
@@ -178,6 +189,11 @@ export default function TailorOrderDetailPage() {
 
         <Card className="p-5 space-y-3">
           <h2 className="text-lg font-semibold">Work Notes</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+            <p><span className="text-muted-foreground">Stitching:</span> Rs. {(order.stitchingPrice ?? order.totalPrice ?? 0).toFixed(2)}</p>
+            <p><span className="text-muted-foreground">Cloth:</span> Rs. {(order.clothPrice ?? 0).toFixed(2)}</p>
+            <p><span className="text-muted-foreground">Total:</span> Rs. {(order.totalPrice ?? ((order.stitchingPrice ?? 0) + (order.clothPrice ?? 0))).toFixed(2)}</p>
+          </div>
           {order.notes ? <p className="text-sm"><span className="text-muted-foreground">Notes:</span> {order.notes}</p> : null}
           <div className="flex gap-3 pt-2">
             {order.fabricImage ? (

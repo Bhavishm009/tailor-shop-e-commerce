@@ -38,6 +38,11 @@ export async function GET() {
         serviceKey: assignment.stitchingOrder.serviceKey,
         stitchingService: assignment.stitchingOrder.stitchingService,
         clothType: assignment.stitchingOrder.clothType,
+        clothSource: assignment.stitchingOrder.clothSource,
+        clothName: assignment.stitchingOrder.clothName,
+        clothPrice: assignment.stitchingOrder.clothPrice,
+        stitchingPrice: assignment.stitchingOrder.stitchingPrice,
+        totalPrice: assignment.stitchingOrder.price,
         fabricImage: assignment.stitchingOrder.fabricImage,
         completedImage: assignment.stitchingOrder.completedImage,
         status: assignment.stitchingOrder.status,
@@ -55,4 +60,3 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to load assigned orders" }, { status: 500 })
   }
 }
-

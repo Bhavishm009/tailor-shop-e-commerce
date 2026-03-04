@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { FeedbackToasts } from "@/components/feedback-toasts"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
 import { uploadFile, isValidImageFile } from "@/lib/file-upload"
 
@@ -20,6 +21,11 @@ type TailorOrder = {
   customerEmail: string
   stitchingService: string
   clothType: string
+  clothSource?: "OWN" | "FROM_US"
+  clothName?: string | null
+  clothPrice?: number
+  stitchingPrice?: number
+  totalPrice?: number
   fabricImage?: string | null
   completedImage?: string | null
   status: "ASSIGNED" | "STITCHING" | "QC" | "COMPLETED" | "DELIVERED" | "CANCELLED"
@@ -144,6 +150,13 @@ export default function OrdersPage() {
           </div>
           <p className="text-sm"><span className="text-muted-foreground">Service:</span> {order.stitchingService}</p>
           <p className="text-sm"><span className="text-muted-foreground">Cloth Type:</span> {order.clothType}</p>
+          <p className="text-sm">
+            <span className="text-muted-foreground">Cloth Source:</span>{" "}
+            {order.clothSource === "FROM_US" ? `From TailorHub${order.clothName ? ` (${order.clothName})` : ""}` : "Own Cloth"}
+          </p>
+          <p className="text-sm">
+            <span className="text-muted-foreground">Amount:</span> Rs. {(order.totalPrice ?? ((order.stitchingPrice ?? 0) + (order.clothPrice ?? 0))).toFixed(2)}
+          </p>
           <p className="text-sm"><span className="text-muted-foreground">Assigned:</span> {new Date(order.assignedAt).toLocaleDateString()}</p>
           {order.notes ? <p className="text-sm"><span className="text-muted-foreground">Notes:</span> {order.notes}</p> : null}
           {order.fabricImage ? (
@@ -224,7 +237,23 @@ export default function OrdersPage() {
 
           <TabsContent value="active" className="mt-6">
             {loading ? (
-              <Card className="p-8 text-center"><p className="text-muted-foreground">Loading...</p></Card>
+              <Card className="p-4 space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="rounded-md border p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-4 w-28" />
+                      </div>
+                      <div className="space-y-2">
+                        <Skeleton className="h-8 w-24" />
+                        <Skeleton className="h-8 w-24" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </Card>
             ) : activeOrders.length === 0 ? (
               <Card className="p-0">
                 <Empty className="border-0 p-10">

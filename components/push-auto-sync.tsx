@@ -21,6 +21,35 @@ function isValidVapidPublicKey(value: string | undefined) {
   return /^[A-Za-z0-9\-_]+$/.test(trimmed) && trimmed.length >= 70
 }
 
+async function persistPushSubscription(payload: {
+  endpoint: string
+  keys?: { p256dh?: string; auth?: string }
+  userAgent: string
+}) {
+  const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" }).catch(() => null)
+  const sessionData = sessionResponse
+    ? ((await sessionResponse.json().catch(() => ({}))) as { user?: { id?: string } })
+    : {}
+
+  if (sessionData?.user?.id) {
+    const userResponse = await fetch("/api/notifications/push-subscription", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (userResponse.ok) return
+  }
+
+  await fetch("/api/notifications/guest-subscription", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      visitorId: getOrCreateVisitorId(),
+      ...payload,
+    }),
+  })
+}
+
 export function PushAutoSync() {
   useEffect(() => {
     const sync = async () => {
@@ -52,34 +81,35 @@ export function PushAutoSync() {
         })
       }
 
-      const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" })
-      const sessionData = (await sessionResponse.json()) as { user?: { id?: string } }
-
       const payload = {
         endpoint: subscription.endpoint,
         keys: subscription.toJSON().keys,
         userAgent: buildPushUserAgent(),
       }
-
-      if (sessionData?.user?.id) {
-        await fetch("/api/notifications/push-subscription", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        })
-      } else {
-        await fetch("/api/notifications/guest-subscription", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            visitorId: getOrCreateVisitorId(),
-            ...payload,
-          }),
-        })
-      }
+      if (!payload.keys?.p256dh || !payload.keys?.auth) return
+      await persistPushSubscription(payload)
     }
 
     void sync()
+    const onFocus = () => {
+      void sync()
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void sync()
+      }
+    }
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    const timer = window.setInterval(() => {
+      void sync()
+    }, 45000)
+
+    return () => {
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+      window.clearInterval(timer)
+    }
   }, [])
 
   return null

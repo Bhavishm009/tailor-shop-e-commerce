@@ -11,6 +11,7 @@ import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { RowActionsMenu } from "@/components/admin/row-actions-menu"
 import {
   Table,
   TableBody,
@@ -36,6 +37,10 @@ type CustomOrder = {
   customerEmail: string
   serviceKey?: string | null
   stitchingService: string
+  clothSource?: "OWN" | "FROM_US"
+  clothName?: string | null
+  clothPrice?: number
+  stitchingPrice?: number
   totalAmount: number
   status: "PENDING" | "ASSIGNED" | "STITCHING" | "QC" | "COMPLETED" | "DELIVERED" | "CANCELLED"
   assignedTailorId?: string | null
@@ -321,11 +326,34 @@ export default function CustomOrdersPage() {
         {selectedRowIds.length > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <p>Selected: <span className="font-medium">{selectedRowIds.length}</span></p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulkStatusUpdate("STITCHING")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "STITCHING" ? "Updating..." : "Set Stitching"}</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulkStatusUpdate("COMPLETED")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "COMPLETED" ? "Updating..." : "Set Completed"}</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulkStatusUpdate("DELIVERED")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "DELIVERED" ? "Updating..." : "Set Delivered"}</Button>
-              <Button type="button" size="sm" variant="destructive" onClick={() => runBulkStatusUpdate("CANCELLED")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "CANCELLED" ? "Updating..." : "Set Cancelled"}</Button>
+            <div className="flex items-center gap-2">
+              <RowActionsMenu
+                triggerLabel="Bulk Actions"
+                items={[
+                  {
+                    label: bulkActionLoading === "STITCHING" ? "Updating..." : "Set Stitching",
+                    onSelect: () => void runBulkStatusUpdate("STITCHING"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "COMPLETED" ? "Updating..." : "Set Completed",
+                    onSelect: () => void runBulkStatusUpdate("COMPLETED"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "DELIVERED" ? "Updating..." : "Set Delivered",
+                    onSelect: () => void runBulkStatusUpdate("DELIVERED"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "CANCELLED" ? "Updating..." : "Set Cancelled",
+                    onSelect: () => void runBulkStatusUpdate("CANCELLED"),
+                    disabled: bulkActionLoading !== null,
+                    destructive: true,
+                    separatorBefore: true,
+                  },
+                ]}
+              />
               <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedRowIds([])} disabled={bulkActionLoading !== null}>Clear Selection</Button>
             </div>
           </div>
@@ -387,52 +415,56 @@ export default function CustomOrdersPage() {
                           <p className="text-xs text-muted-foreground">{order.customerEmail}</p>
                         </div>
                       </TableCell>
-                      <TableCell>{order.stitchingService}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p>{order.stitchingService}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {order.clothSource === "FROM_US" ? `From TailorHub${order.clothName ? ` (${order.clothName})` : ""}` : "Own Cloth"}
+                          </p>
+                        </div>
+                      </TableCell>
                       <TableCell><Badge variant={order.status === "CANCELLED" ? "destructive" : "secondary"}>{order.status}</Badge></TableCell>
                       <TableCell>{order.assignedTailorName || "Not assigned"}</TableCell>
                       <TableCell>{order.payoutAmount ? `Rs. ${order.payoutAmount.toFixed(2)} (${order.payoutStatus})` : "-"}</TableCell>
                       <TableCell>Rs. {order.totalAmount.toFixed(2)}</TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                          <select className="h-8 rounded-md border bg-background px-2 text-xs" onClick={(event) => event.stopPropagation()} value={order.status} onChange={async (e) => {
-                            const nextStatus = e.target.value as CustomOrder["status"]
-                            if (nextStatus === "ASSIGNED") {
-                              await openAssignDialog(order.id)
-                              return
-                            }
-                            setError("")
-                            setSuccess("")
-                            const ok = await updateOrderStatus(order, nextStatus)
-                            if (!ok) {
-                              setError("Failed to update custom order status.")
-                              return
-                            }
-                            setSuccess("Custom order status updated.")
-                            await loadOrders()
-                          }}>
-                            {getStatusOptionsForOrder(order).map((status) => (
-                              <option key={status} value={status}>{status}</option>
-                            ))}
-                          </select>
-                          {order.status === "PENDING" ? (
-                            <Button type="button" variant="outline" size="sm" onClick={(event) => {
-                              event.stopPropagation()
-                              void openAssignDialog(order.id)
-                            }}>
-                              Assign Tailor
-                            </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              router.push(`/admin/chats?orderId=${order.id}`)
-                            }}
-                          >
-                            Chat
-                          </Button>
+                        <div className="flex items-center justify-end">
+                          <RowActionsMenu
+                            items={[
+                              ...getStatusOptionsForOrder(order).map((status) => ({
+                                label: `Set ${status}`,
+                                onSelect: async () => {
+                                  if (status === "ASSIGNED") {
+                                    await openAssignDialog(order.id)
+                                    return
+                                  }
+                                  setError("")
+                                  setSuccess("")
+                                  const ok = await updateOrderStatus(order, status)
+                                  if (!ok) {
+                                    setError("Failed to update custom order status.")
+                                    return
+                                  }
+                                  setSuccess("Custom order status updated.")
+                                  await loadOrders()
+                                },
+                                disabled: status === order.status,
+                              })),
+                              ...(order.status === "PENDING"
+                                ? [
+                                    {
+                                      label: "Assign Tailor",
+                                      onSelect: () => void openAssignDialog(order.id),
+                                      separatorBefore: true,
+                                    },
+                                  ]
+                                : []),
+                              {
+                                label: "Open Chat",
+                                onSelect: () => router.push(`/admin/chats?orderId=${order.id}`),
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -529,7 +561,17 @@ export default function CustomOrdersPage() {
           </DialogHeader>
 
           {loadingTailors ? (
-            <p className="text-sm text-muted-foreground">Loading eligible tailors...</p>
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2">
+                  <Skeleton className="col-span-1 h-4 w-4 rounded-sm" />
+                  <Skeleton className="col-span-3 h-4 w-24" />
+                  <Skeleton className="col-span-4 h-4 w-full" />
+                  <Skeleton className="col-span-2 h-4 w-16" />
+                  <Skeleton className="col-span-2 h-4 w-16" />
+                </div>
+              ))}
+            </div>
           ) : eligibleTailors.length === 0 ? (
             <p className="text-sm text-muted-foreground">No active tailor available for this service.</p>
           ) : (

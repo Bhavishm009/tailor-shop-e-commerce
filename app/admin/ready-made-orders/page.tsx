@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { RowActionsMenu } from "@/components/admin/row-actions-menu"
 import {
   Table,
   TableBody,
@@ -72,6 +73,7 @@ const getStartOfWeek = (date: Date) => {
 }
 
 export default function ReadyMadeOrdersPage() {
+  const router = useRouter()
   const [orders, setOrders] = useState<ReadyMadeOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -256,11 +258,34 @@ export default function ReadyMadeOrdersPage() {
         {selectedRowIds.length > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <p>Selected: <span className="font-medium">{selectedRowIds.length}</span></p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulkStatusUpdate("CONFIRMED")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "CONFIRMED" ? "Updating..." : "Set Confirmed"}</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulkStatusUpdate("PROCESSING")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "PROCESSING" ? "Updating..." : "Set Processing"}</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulkStatusUpdate("SHIPPED")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "SHIPPED" ? "Updating..." : "Set Shipped"}</Button>
-              <Button type="button" size="sm" variant="destructive" onClick={() => runBulkStatusUpdate("CANCELLED")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "CANCELLED" ? "Updating..." : "Set Cancelled"}</Button>
+            <div className="flex items-center gap-2">
+              <RowActionsMenu
+                triggerLabel="Bulk Actions"
+                items={[
+                  {
+                    label: bulkActionLoading === "CONFIRMED" ? "Updating..." : "Set Confirmed",
+                    onSelect: () => void runBulkStatusUpdate("CONFIRMED"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "PROCESSING" ? "Updating..." : "Set Processing",
+                    onSelect: () => void runBulkStatusUpdate("PROCESSING"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "SHIPPED" ? "Updating..." : "Set Shipped",
+                    onSelect: () => void runBulkStatusUpdate("SHIPPED"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "CANCELLED" ? "Updating..." : "Set Cancelled",
+                    onSelect: () => void runBulkStatusUpdate("CANCELLED"),
+                    disabled: bulkActionLoading !== null,
+                    destructive: true,
+                    separatorBefore: true,
+                  },
+                ]}
+              />
               <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedRowIds([])} disabled={bulkActionLoading !== null}>Clear Selection</Button>
             </div>
           </div>
@@ -319,26 +344,33 @@ export default function ReadyMadeOrdersPage() {
                       <TableCell>Rs. {order.totalAmount.toFixed(2)}</TableCell>
                       <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                          <select className="h-8 rounded-md border bg-background px-2 text-xs" value={order.status} onChange={async (e) => {
-                            const nextStatus = e.target.value as ReadyMadeOrder["status"]
-                            setError("")
-                            setSuccess("")
-                            const ok = await updateOrderStatus(order, nextStatus)
-                            if (!ok) {
-                              setError("Failed to update order status.")
-                              return
-                            }
-                            setSuccess("Order status updated.")
-                            await loadOrders()
-                          }}>
-                            {getStatusOptionsForOrder(order).map((status) => (
-                              <option key={status} value={status}>{status}</option>
-                            ))}
-                          </select>
-                          <Button asChild type="button" variant="outline" size="sm">
-                            <Link href={`/admin/ready-made-orders/${order.id}`}>Details</Link>
-                          </Button>
+                        <div className="flex items-center justify-end">
+                          <RowActionsMenu
+                            items={[
+                              ...getStatusOptionsForOrder(order).map((status) => ({
+                                label: `Set ${status}`,
+                                onSelect: async () => {
+                                  setError("")
+                                  setSuccess("")
+                                  const ok = await updateOrderStatus(order, status)
+                                  if (!ok) {
+                                    setError("Failed to update order status.")
+                                    return
+                                  }
+                                  setSuccess("Order status updated.")
+                                  await loadOrders()
+                                },
+                                disabled: status === order.status,
+                              })),
+                              {
+                                label: "View Details",
+                                onSelect: () => {
+                                  router.push(`/admin/ready-made-orders/${order.id}`)
+                                },
+                                separatorBefore: true,
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

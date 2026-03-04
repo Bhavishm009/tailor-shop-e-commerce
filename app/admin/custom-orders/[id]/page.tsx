@@ -51,6 +51,10 @@ type AdminOrderDetail = {
   stitchingService: string
   serviceKey?: string | null
   clothType: string
+  clothSource?: "OWN" | "FROM_US"
+  clothName?: string | null
+  clothPrice?: number
+  stitchingPrice?: number
   status: "PENDING" | "ASSIGNED" | "STITCHING" | "QC" | "COMPLETED" | "DELIVERED" | "CANCELLED"
   price: number
   contactName?: string | null
@@ -148,6 +152,8 @@ export default function AdminCustomOrderDetailPage() {
   const payoutDue = Math.max(0, tailorPayout - payoutPaid)
   const customerAdvance = order?.payment?.status === "COMPLETED" ? order.payment.amount : 0
   const customerBalance = order ? Math.max(0, order.price - customerAdvance) : 0
+  const stitchedAmount = order?.stitchingPrice ?? order?.price ?? 0
+  const clothAmount = order?.clothPrice ?? 0
 
   const loadData = async () => {
     setLoading(true)
@@ -277,7 +283,10 @@ export default function AdminCustomOrderDetailPage() {
     doc.line(14, y, 196, y)
     y += 6
     doc.text(`${order.stitchingService} (${order.clothType})`, 16, y)
-    doc.text(order.price.toFixed(2), 170, y, { align: "right" })
+    doc.text((order.stitchingPrice ?? order.price).toFixed(2), 170, y, { align: "right" })
+    y += 6
+    doc.text(`Cloth ${order.clothSource === "FROM_US" ? `(From TailorHub${order.clothName ? ` - ${order.clothName}` : ""})` : "(Own Cloth)"}`, 16, y)
+    doc.text((order.clothPrice ?? 0).toFixed(2), 170, y, { align: "right" })
     y += 6
     doc.text("Advance Received", 16, y)
     doc.text(customerAdvance.toFixed(2), 170, y, { align: "right" })
@@ -333,6 +342,7 @@ export default function AdminCustomOrderDetailPage() {
     doc.text(`Customer Name: ${order.customer.name}`, 14, y); y += 5
     doc.text(`Service: ${order.stitchingService}`, 14, y); y += 5
     doc.text(`Cloth Type: ${order.clothType}`, 14, y); y += 5
+    doc.text(`Cloth Source: ${order.clothSource === "FROM_US" ? `From TailorHub${order.clothName ? ` (${order.clothName})` : ""}` : "Own Cloth"}`, 14, y); y += 5
     doc.text(`Status: ${order.status}`, 14, y); y += 8
 
     doc.setFontSize(12)
@@ -459,10 +469,15 @@ export default function AdminCustomOrderDetailPage() {
             <p className="text-xs text-muted-foreground">Service</p>
             <p className="font-semibold mt-1">{order.stitchingService}</p>
             <p className="text-xs text-muted-foreground">Cloth: {order.clothType}</p>
+            <p className="text-xs text-muted-foreground">
+              Source: {order.clothSource === "FROM_US" ? `From TailorHub${order.clothName ? ` (${order.clothName})` : ""}` : "Own Cloth"}
+            </p>
           </Card>
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">Amount</p>
             <p className="font-semibold mt-1">Rs. {order.price.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground">Stitching: Rs. {stitchedAmount.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground">Cloth: Rs. {clothAmount.toFixed(2)}</p>
           </Card>
         </div>
       </Card>

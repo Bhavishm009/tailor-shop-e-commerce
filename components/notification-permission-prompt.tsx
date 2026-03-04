@@ -1,28 +1,46 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { getOrCreateVisitorId } from "@/lib/visitor-id"
 import { buildPushUserAgent } from "@/lib/push-client-id"
 
 const PROMPT_DISMISSED_KEY = "tailorhub_notification_prompt_dismissed"
 
+async function persistPushSubscription(payload: {
+  endpoint: string
+  keys?: { p256dh?: string; auth?: string }
+  userAgent: string
+}) {
+  const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" }).catch(() => null)
+  const sessionData = sessionResponse
+    ? ((await sessionResponse.json().catch(() => ({}))) as { user?: { id?: string } })
+    : {}
+
+  if (sessionData?.user?.id) {
+    const userResponse = await fetch("/api/notifications/push-subscription", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (userResponse.ok) return
+  }
+
+  await fetch("/api/notifications/guest-subscription", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      visitorId: getOrCreateVisitorId(),
+      ...payload,
+    }),
+  })
+}
+
 export function NotificationPermissionPrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) return
-
-    getOrCreateVisitorId()
-
-    const dismissed = window.localStorage.getItem(PROMPT_DISMISSED_KEY) === "1"
-    if (Notification.permission === "default" && !dismissed) {
-      setShowPrompt(true)
-    }
-  }, [])
-
-  const askPermission = async () => {
+  const askPermission = useCallback(async (auto = false) => {
     if (!("Notification" in window)) return
 
     setBusy(true)
@@ -45,40 +63,43 @@ export function NotificationPermissionPrompt() {
               })
             }
 
-            const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" })
-            const sessionData = (await sessionResponse.json()) as { user?: { id?: string } }
-
             const payload = {
               endpoint: subscription.endpoint,
               keys: subscription.toJSON().keys,
               userAgent: buildPushUserAgent(),
             }
-
-            if (sessionData?.user?.id) {
-              await fetch("/api/notifications/push-subscription", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              })
-            } else {
-              await fetch("/api/notifications/guest-subscription", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  visitorId: getOrCreateVisitorId(),
-                  ...payload,
-                }),
-              })
+            if (payload.keys?.p256dh && payload.keys?.auth) {
+              await persistPushSubscription(payload)
             }
           }
         }
       }
-      setShowPrompt(false)
-      window.localStorage.setItem(PROMPT_DISMISSED_KEY, "1")
+
+      if (permission !== "default") {
+        window.localStorage.setItem(PROMPT_DISMISSED_KEY, "1")
+      }
+      if (permission === "granted" || (!auto && permission !== "default")) {
+        setShowPrompt(false)
+      }
     } finally {
       setBusy(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return
+
+    getOrCreateVisitorId()
+
+    const dismissed = window.localStorage.getItem(PROMPT_DISMISSED_KEY) === "1"
+    if (Notification.permission === "default" && !dismissed) {
+      setShowPrompt(true)
+      const timer = window.setTimeout(() => {
+        void askPermission(true)
+      }, 1200)
+      return () => window.clearTimeout(timer)
+    }
+  }, [askPermission])
 
   const dismiss = () => {
     setShowPrompt(false)
@@ -91,7 +112,7 @@ export function NotificationPermissionPrompt() {
     <div className="fixed bottom-4 left-4 right-4 z-[120] rounded-xl border bg-background p-4 shadow-xl md:left-auto md:right-4 md:max-w-md">
       <p className="text-sm font-medium">Enable notifications for order and offer updates.</p>
       <div className="mt-3 flex items-center gap-2">
-        <Button type="button" size="sm" onClick={askPermission} disabled={busy}>
+        <Button type="button" size="sm" onClick={() => void askPermission(false)} disabled={busy}>
           {busy ? "Requesting..." : "Allow Notifications"}
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={dismiss} disabled={busy}>

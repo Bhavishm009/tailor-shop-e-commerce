@@ -64,6 +64,11 @@ enum ClothType {
   CUSTOM
 }
 
+enum ClothSource {
+  OWN
+  FROM_US
+}
+
 enum ProductMasterType {
   CATEGORY
   SUBCATEGORY
@@ -192,6 +197,10 @@ model Measurement {
   id            String   @id @default(cuid())
   userId        String
   name          String
+  isVerified    Boolean  @default(false)
+  source        String?  @default("CUSTOMER")
+  verifiedByAdminId String?
+  verifiedAt    DateTime?
   measurementType String?
   measurementData Json?
   chest         Float?
@@ -398,6 +407,10 @@ model StitchingOrder {
   customerId       String
   measurementId    String
   clothType        ClothType
+  clothSource      ClothSource @default(OWN)
+  clothName        String?
+  clothPrice       Float       @default(0)
+  stitchingPrice   Float       @default(0)
   fabricImage      String?
   completedImage   String?
   serviceKey       String?

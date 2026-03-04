@@ -3,6 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
+import { Skeleton } from "@/components/ui/skeleton"
+import { RowActionsMenu } from "@/components/admin/row-actions-menu"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
@@ -66,6 +69,7 @@ const getStartOfWeek = (date: Date) => {
 }
 
 export default function AdminProductsPage() {
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -375,34 +379,29 @@ export default function AdminProductsPage() {
         {selectedRowIds.length > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <p>Selected: <span className="font-medium">{selectedRowIds.length}</span></p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => onBulkToggleStatus(true)}
-                disabled={bulkActionLoading !== null}
-              >
-                {bulkActionLoading === "activate" ? "Updating..." : "Set Active"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => onBulkToggleStatus(false)}
-                disabled={bulkActionLoading !== null}
-              >
-                {bulkActionLoading === "deactivate" ? "Updating..." : "Set Inactive"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={onBulkDelete}
-                disabled={bulkActionLoading !== null}
-              >
-                {bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected"}
-              </Button>
+            <div className="flex items-center gap-2">
+              <RowActionsMenu
+                triggerLabel="Bulk Actions"
+                items={[
+                  {
+                    label: bulkActionLoading === "activate" ? "Updating..." : "Set Active",
+                    onSelect: () => void onBulkToggleStatus(true),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "deactivate" ? "Updating..." : "Set Inactive",
+                    onSelect: () => void onBulkToggleStatus(false),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected",
+                    onSelect: () => void onBulkDelete(),
+                    disabled: bulkActionLoading !== null,
+                    destructive: true,
+                    separatorBefore: true,
+                  },
+                ]}
+              />
               <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedRowIds([])} disabled={bulkActionLoading !== null}>
                 Clear Selection
               </Button>
@@ -415,7 +414,20 @@ export default function AdminProductsPage() {
         )}
 
         {loading ? (
-          <p className="text-muted-foreground">Loading products...</p>
+          <div className="rounded-md border p-3">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="grid grid-cols-12 gap-2 border-b py-3 last:border-b-0">
+                <Skeleton className="col-span-1 h-5 w-5 rounded-sm" />
+                <Skeleton className="col-span-3 h-12 w-full" />
+                <Skeleton className="col-span-2 h-5 w-24" />
+                <Skeleton className="col-span-1 h-5 w-16" />
+                <Skeleton className="col-span-1 h-5 w-10" />
+                <Skeleton className="col-span-1 h-5 w-16" />
+                <Skeleton className="col-span-1 h-5 w-20" />
+                <Skeleton className="col-span-2 h-8 w-24 justify-self-end" />
+              </div>
+            ))}
+          </div>
         ) : totalRecords === 0 ? (
           <Empty className="border-0 p-10">
             <EmptyHeader>
@@ -448,11 +460,16 @@ export default function AdminProductsPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedProducts.map((product) => (
-                    <TableRow key={product.id}>
+                    <TableRow
+                      key={product.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/admin/products/${product.id}/edit`)}
+                    >
                       <TableCell>
                         <input
                           type="checkbox"
                           checked={selectedRowIds.includes(product.id)}
+                          onClick={(event) => event.stopPropagation()}
                           onChange={() => toggleRowSelection(product.id)}
                           aria-label={`Select row for ${product.name}`}
                         />
@@ -478,16 +495,28 @@ export default function AdminProductsPage() {
                       </TableCell>
                       <TableCell>{new Date(product.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                          <Button type="button" variant="outline" size="sm" asChild>
-                            <Link href={`/admin/products/${product.id}/edit`}>Edit</Link>
-                          </Button>
-                          <Button type="button" variant="outline" size="sm" onClick={() => onToggleStatus(product)}>
-                            {product.isActive ? "Set Inactive" : "Set Active"}
-                          </Button>
-                          <Button type="button" variant="destructive" size="sm" disabled={deletingId === product.id} onClick={() => onDeleteProduct(product.id)}>
-                            {deletingId === product.id ? "Deleting..." : "Delete"}
-                          </Button>
+                        <div className="flex items-center justify-end">
+                          <RowActionsMenu
+                            items={[
+                              {
+                                label: "Edit",
+                                onSelect: () => {
+                                  router.push(`/admin/products/${product.id}/edit`)
+                                },
+                              },
+                              {
+                                label: product.isActive ? "Set Inactive" : "Set Active",
+                                onSelect: () => void onToggleStatus(product),
+                              },
+                              {
+                                label: deletingId === product.id ? "Deleting..." : "Delete",
+                                onSelect: () => void onDeleteProduct(product.id),
+                                disabled: deletingId === product.id,
+                                destructive: true,
+                                separatorBefore: true,
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

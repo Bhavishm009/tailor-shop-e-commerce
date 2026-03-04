@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
+import { RowActionsMenu } from "@/components/admin/row-actions-menu"
 
 type ProductMasterType = "CATEGORY" | "SUBCATEGORY" | "CLOTH_TYPE" | "MATERIAL" | "SIZE" | "COLOR"
 
@@ -154,13 +155,21 @@ export default function ProductMastersPage() {
                       <td className="py-2">{item.type}</td>
                       <td className="py-2">{item.isActive ? "Active" : "Inactive"}</td>
                       <td className="py-2">
-                        <div className="flex justify-end gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => toggleActive(item)}>
-                            {item.isActive ? "Disable" : "Enable"}
-                          </Button>
-                          <Button type="button" variant="destructive" size="sm" onClick={() => remove(item.id)}>
-                            Delete
-                          </Button>
+                        <div className="flex justify-end">
+                          <RowActionsMenu
+                            items={[
+                              {
+                                label: item.isActive ? "Disable" : "Enable",
+                                onSelect: () => void toggleActive(item),
+                              },
+                              {
+                                label: "Delete",
+                                onSelect: () => void remove(item.id),
+                                destructive: true,
+                                separatorBefore: true,
+                              },
+                            ]}
+                          />
                         </div>
                       </td>
                     </tr>

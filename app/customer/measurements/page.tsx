@@ -10,10 +10,13 @@ import { FeedbackToasts } from "@/components/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Plus, Trash2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 interface Measurement {
   id: string
   name: string
+  isVerified?: boolean
+  source?: string | null
   chest?: number
   waist?: number
   hip?: number
@@ -234,7 +237,17 @@ export default function MeasurementsPage() {
               <Card key={measurement.id} className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="text-lg font-bold">{measurement.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold">{measurement.name}</h3>
+                      {measurement.isVerified ? (
+                        <Badge>Verified</Badge>
+                      ) : (
+                        <Badge variant="outline">Suggested by you</Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {measurement.isVerified ? "Added and verified by admin" : "Customer suggested measurement"}
+                    </p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 text-sm">
                       {[
                         { key: "chest", label: "Chest" },

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
 
 type ReadyMadeOrder = {
@@ -158,7 +159,23 @@ export default function OrdersPage() {
 
           <TabsContent value="all" className="mt-6">
             {loading ? (
-              <Card className="p-8 text-center"><p className="text-muted-foreground">Loading orders...</p></Card>
+              <Card className="p-4 space-y-3">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <div key={index} className="rounded-md border p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-5 w-40" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <div className="space-y-2 text-right">
+                        <Skeleton className="h-5 w-20" />
+                        <Skeleton className="h-5 w-16" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </Card>
             ) : allOrders.length === 0 ? (
               <Card className="p-8 text-center">
                 <p className="text-muted-foreground mb-4">No orders yet</p>

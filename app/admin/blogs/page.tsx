@@ -3,6 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +13,7 @@ import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
+import { RowActionsMenu } from "@/components/admin/row-actions-menu"
 import {
   Table,
   TableBody,
@@ -64,6 +66,7 @@ const getStartOfWeek = (date: Date) => {
 }
 
 export default function AdminBlogsPage() {
+  const router = useRouter()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -375,34 +378,29 @@ export default function AdminBlogsPage() {
         {selectedRowIds.length > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <p>Selected: <span className="font-medium">{selectedRowIds.length}</span></p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => onBulkTogglePublish(true)}
-                disabled={bulkActionLoading !== null}
-              >
-                {bulkActionLoading === "publish" ? "Publishing..." : "Publish Selected"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => onBulkTogglePublish(false)}
-                disabled={bulkActionLoading !== null}
-              >
-                {bulkActionLoading === "unpublish" ? "Updating..." : "Unpublish Selected"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={onBulkDelete}
-                disabled={bulkActionLoading !== null}
-              >
-                {bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected"}
-              </Button>
+            <div className="flex items-center gap-2">
+              <RowActionsMenu
+                triggerLabel="Bulk Actions"
+                items={[
+                  {
+                    label: bulkActionLoading === "publish" ? "Publishing..." : "Publish Selected",
+                    onSelect: () => void onBulkTogglePublish(true),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "unpublish" ? "Updating..." : "Unpublish Selected",
+                    onSelect: () => void onBulkTogglePublish(false),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected",
+                    onSelect: () => void onBulkDelete(),
+                    disabled: bulkActionLoading !== null,
+                    destructive: true,
+                    separatorBefore: true,
+                  },
+                ]}
+              />
               <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedRowIds([])} disabled={bulkActionLoading !== null}>
                 Clear Selection
               </Button>
@@ -450,11 +448,16 @@ export default function AdminBlogsPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedPosts.map((post) => (
-                    <TableRow key={post.id}>
+                    <TableRow
+                      key={post.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/admin/blogs/${post.id}/edit`)}
+                    >
                       <TableCell>
                         <input
                           type="checkbox"
                           checked={selectedRowIds.includes(post.id)}
+                          onClick={(event) => event.stopPropagation()}
                           onChange={() => toggleRowSelection(post.id)}
                           aria-label={`Select row for ${post.title}`}
                         />
@@ -484,16 +487,26 @@ export default function AdminBlogsPage() {
                       </TableCell>
                       <TableCell>{new Date(post.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                          <Button type="button" variant="outline" size="sm" asChild>
-                            <Link href={`/admin/blogs/${post.id}/edit`}>Edit</Link>
-                          </Button>
-                          <Button type="button" variant="outline" size="sm" onClick={() => onTogglePublish(post)}>
-                            {post.isPublished ? "Unpublish" : "Publish"}
-                          </Button>
-                          <Button type="button" variant="destructive" size="sm" disabled={deletingId === post.id} onClick={() => onDeletePost(post.id)}>
-                            {deletingId === post.id ? "Deleting..." : "Delete"}
-                          </Button>
+                        <div className="flex items-center justify-end">
+                          <RowActionsMenu
+                            items={[
+                              {
+                                label: "Edit",
+                                onSelect: () => router.push(`/admin/blogs/${post.id}/edit`),
+                              },
+                              {
+                                label: post.isPublished ? "Unpublish" : "Publish",
+                                onSelect: () => void onTogglePublish(post),
+                              },
+                              {
+                                label: deletingId === post.id ? "Deleting..." : "Delete",
+                                onSelect: () => void onDeletePost(post.id),
+                                disabled: deletingId === post.id,
+                                destructive: true,
+                                separatorBefore: true,
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

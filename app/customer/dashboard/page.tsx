@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
 import { Package, Ruler, TrendingUp } from "lucide-react"
 
@@ -161,7 +162,22 @@ export default function CustomerDashboard() {
             </Button>
           </div>
           {loading ? (
-            <p className="text-muted-foreground">Loading recent orders...</p>
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="rounded-md border p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-3 w-36" />
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <Skeleton className="h-5 w-20" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : recentOrders.length === 0 ? (
             <p className="text-muted-foreground">No orders yet. Start shopping!</p>
           ) : (

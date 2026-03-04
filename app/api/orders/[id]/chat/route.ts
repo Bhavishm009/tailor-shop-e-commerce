@@ -195,36 +195,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (admin.id !== session.user.id) recipients.add(admin.id)
     }
 
-    for (const recipientId of recipients) {
-      emitToUser(recipientId, "chat:new-message", {
-        orderId: order.id,
-        conversationId: conversation.id,
-        message: created.msg,
-      })
-      await createOrderNotification({
-        userId: recipientId,
-        title: "New order chat message",
-        message: `${created.msg.sender.name}: ${created.msg.message.slice(0, 120)}`,
-        type: "ORDER_CHAT_MESSAGE",
-        link:
-          recipientId === order.customerId
-            ? `/customer/orders/custom/${order.id}`
-            : recipientId === order.assignment?.tailorId
-              ? `/tailor/orders/${order.id}`
-              : `/admin/chats?orderId=${order.id}`,
-      })
-    }
-
-    if (messageType === "COMPLAINT") {
-      for (const admin of admins) {
+    try {
+      for (const recipientId of recipients) {
+        emitToUser(recipientId, "chat:new-message", {
+          orderId: order.id,
+          conversationId: conversation.id,
+          message: created.msg,
+        })
         await createOrderNotification({
-          userId: admin.id,
-          title: "New complaint raised",
-          message: `${order.customer.name} raised complaint for order ST-${order.id.slice(-6).toUpperCase()}.`,
-          type: "ORDER_COMPLAINT",
-          link: `/admin/custom-orders/${order.id}`,
+          userId: recipientId,
+          title: "New order chat message",
+          message: `${created.msg.sender.name}: ${created.msg.message.slice(0, 120)}`,
+          type: "ORDER_CHAT_MESSAGE",
+          link:
+            recipientId === order.customerId
+              ? `/customer/orders/custom/${order.id}`
+              : recipientId === order.assignment?.tailorId
+                ? `/tailor/orders/${order.id}`
+                : `/admin/chats?orderId=${order.id}`,
         })
       }
+
+      if (messageType === "COMPLAINT") {
+        for (const admin of admins) {
+          await createOrderNotification({
+            userId: admin.id,
+            title: "New complaint raised",
+            message: `${order.customer.name} raised complaint for order ST-${order.id.slice(-6).toUpperCase()}.`,
+            type: "ORDER_COMPLAINT",
+            link: `/admin/custom-orders/${order.id}`,
+          })
+        }
+      }
+    } catch (notifyError) {
+      // Message and complaint creation already succeeded; don't fail chat send due to notify issues.
+      console.error("[orders/chat/post/notify]", notifyError)
     }
 
     return NextResponse.json({

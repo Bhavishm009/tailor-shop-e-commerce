@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { DatePicker } from "@/components/ui/date-picker"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import { Spinner } from "@/components/ui/spinner"
+import { Skeleton } from "@/components/ui/skeleton"
+import { RowActionsMenu } from "@/components/admin/row-actions-menu"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
@@ -62,6 +65,7 @@ const getStartOfWeek = (date: Date) => {
 }
 
 export default function UsersPage() {
+  const router = useRouter()
   const [users, setUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -81,7 +85,20 @@ export default function UsersPage() {
   const [pageSize, setPageSize] = useState(10)
   const [bulkActionLoading, setBulkActionLoading] = useState<string | null>(null)
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false)
+  const [isAddMeasurementOpen, setIsAddMeasurementOpen] = useState(false)
   const [creatingUser, setCreatingUser] = useState(false)
+  const [creatingMeasurement, setCreatingMeasurement] = useState(false)
+  const [measurementTargetUser, setMeasurementTargetUser] = useState<{ id: string; name: string } | null>(null)
+  const [measurementForm, setMeasurementForm] = useState({
+    name: "",
+    notes: "",
+    chest: "",
+    waist: "",
+    hip: "",
+    shoulder: "",
+    sleeveLength: "",
+    garmentLength: "",
+  })
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -93,6 +110,14 @@ export default function UsersPage() {
     state: "",
     postalCode: "",
     country: "India",
+    measurementName: "",
+    measurementNotes: "",
+    chest: "",
+    waist: "",
+    hip: "",
+    shoulder: "",
+    sleeveLength: "",
+    garmentLength: "",
   })
 
   const isNewUserNameValid = newUser.name.trim().length >= 2
@@ -115,6 +140,7 @@ export default function UsersPage() {
     isNewUserCountryValid &&
     isNewUserPostalValid &&
     !creatingUser
+  const canCreateMeasurement = measurementForm.name.trim().length > 0 && !creatingMeasurement
 
   const loadUsers = async () => {
     try {
@@ -343,6 +369,19 @@ export default function UsersPage() {
             postalCode: newUser.postalCode,
             country: newUser.country,
           },
+          measurement:
+            newUser.role === "CUSTOMER" && newUser.measurementName.trim()
+              ? {
+                  name: newUser.measurementName,
+                  notes: newUser.measurementNotes,
+                  chest: newUser.chest,
+                  waist: newUser.waist,
+                  hip: newUser.hip,
+                  shoulder: newUser.shoulder,
+                  sleeveLength: newUser.sleeveLength,
+                  garmentLength: newUser.garmentLength,
+                }
+              : undefined,
         }),
       })
 
@@ -365,6 +404,14 @@ export default function UsersPage() {
         state: "",
         postalCode: "",
         country: "India",
+        measurementName: "",
+        measurementNotes: "",
+        chest: "",
+        waist: "",
+        hip: "",
+        shoulder: "",
+        sleeveLength: "",
+        garmentLength: "",
       })
       setIsAddCustomerOpen(false)
       await loadUsers()
@@ -379,6 +426,44 @@ export default function UsersPage() {
         ? prev.filter((value) => value !== role)
         : [...prev, role]
     )
+  }
+
+  const openAddMeasurement = (user: UserRecord) => {
+    setMeasurementTargetUser({ id: user.id, name: user.name })
+    setMeasurementForm({
+      name: "",
+      notes: "",
+      chest: "",
+      waist: "",
+      hip: "",
+      shoulder: "",
+      sleeveLength: "",
+      garmentLength: "",
+    })
+    setIsAddMeasurementOpen(true)
+  }
+
+  const addMeasurementForUser = async () => {
+    if (!measurementTargetUser) return
+    setError("")
+    setSuccess("")
+    setCreatingMeasurement(true)
+    try {
+      const response = await fetch(`/api/admin/users/${measurementTargetUser.id}/measurements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(measurementForm),
+      })
+      const data = (await response.json().catch(() => ({ error: "Failed to add measurement." }))) as { error?: string }
+      if (!response.ok) {
+        setError(data.error || "Failed to add measurement.")
+        return
+      }
+      setSuccess("Verified measurement added successfully.")
+      setIsAddMeasurementOpen(false)
+    } finally {
+      setCreatingMeasurement(false)
+    }
   }
 
   return (
@@ -416,16 +501,29 @@ export default function UsersPage() {
         {selectedRowIds.length > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <p>Selected: <span className="font-medium">{selectedRowIds.length}</span></p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulk("to-tailor")} disabled={bulkActionLoading !== null}>
-                {bulkActionLoading === "to-tailor" ? "Updating..." : "Set Tailor"}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulk("to-customer")} disabled={bulkActionLoading !== null}>
-                {bulkActionLoading === "to-customer" ? "Updating..." : "Set Customer"}
-              </Button>
-              <Button type="button" size="sm" variant="destructive" onClick={() => runBulk("delete")} disabled={bulkActionLoading !== null}>
-                {bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected"}
-              </Button>
+            <div className="flex items-center gap-2">
+              <RowActionsMenu
+                triggerLabel="Bulk Actions"
+                items={[
+                  {
+                    label: bulkActionLoading === "to-tailor" ? "Updating..." : "Set Tailor",
+                    onSelect: () => void runBulk("to-tailor"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "to-customer" ? "Updating..." : "Set Customer",
+                    onSelect: () => void runBulk("to-customer"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected",
+                    onSelect: () => void runBulk("delete"),
+                    disabled: bulkActionLoading !== null,
+                    destructive: true,
+                    separatorBefore: true,
+                  },
+                ]}
+              />
               <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedRowIds([])} disabled={bulkActionLoading !== null}>
                 Clear Selection
               </Button>
@@ -438,7 +536,21 @@ export default function UsersPage() {
         )}
 
         {loading ? (
-          <p className="text-muted-foreground">Loading users...</p>
+          <div className="rounded-md border p-3">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="grid grid-cols-12 gap-2 border-b py-3 last:border-b-0">
+                <Skeleton className="col-span-1 h-5 w-5 rounded-sm" />
+                <Skeleton className="col-span-2 h-5 w-24" />
+                <Skeleton className="col-span-2 h-5 w-28" />
+                <Skeleton className="col-span-1 h-5 w-16" />
+                <Skeleton className="col-span-1 h-5 w-16" />
+                <Skeleton className="col-span-1 h-5 w-16" />
+                <Skeleton className="col-span-1 h-5 w-16" />
+                <Skeleton className="col-span-1 h-5 w-20" />
+                <Skeleton className="col-span-2 h-8 w-24 justify-self-end" />
+              </div>
+            ))}
+          </div>
         ) : totalRecords === 0 ? (
           <Empty className="border-0 p-10">
             <EmptyHeader>
@@ -472,11 +584,12 @@ export default function UsersPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedUsers.map((user) => (
-                    <TableRow key={user.id}>
+                    <TableRow key={user.id} className="cursor-pointer" onClick={() => router.push(`/admin/users/${user.id}`)}>
                       <TableCell>
                         <input
                           type="checkbox"
                           checked={selectedRowIds.includes(user.id)}
+                          onClick={(event) => event.stopPropagation()}
                           onChange={() => toggleRowSelection(user.id)}
                           aria-label={`Select row for ${user.name}`}
                         />
@@ -493,18 +606,29 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => runSingle(user.id, user.role === "TAILOR" ? "to-customer" : "to-tailor")}
-                          >
-                            {user.role === "TAILOR" ? "Set Customer" : "Set Tailor"}
-                          </Button>
-                          <Button type="button" variant="destructive" size="sm" onClick={() => runSingle(user.id, "delete")}>
-                            Delete
-                          </Button>
+                        <div className="flex items-center justify-end">
+                          <RowActionsMenu
+                            items={[
+                              {
+                                label: user.role === "TAILOR" ? "Set Customer" : "Set Tailor",
+                                onSelect: () => void runSingle(user.id, user.role === "TAILOR" ? "to-customer" : "to-tailor"),
+                              },
+                              ...(user.role === "CUSTOMER"
+                                ? [
+                                    {
+                                      label: "Add Measurement",
+                                      onSelect: () => openAddMeasurement(user),
+                                    },
+                                  ]
+                                : []),
+                              {
+                                label: "Delete",
+                                onSelect: () => void runSingle(user.id, "delete"),
+                                destructive: true,
+                                separatorBefore: true,
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -609,7 +733,7 @@ export default function UsersPage() {
       </ResponsiveFilterModal>
 
       <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Add User</DialogTitle>
             <DialogDescription>Create a customer, tailor, or admin account directly from the admin panel.</DialogDescription>
@@ -667,6 +791,30 @@ export default function UsersPage() {
             {!isNewUserStateValid ? <p className="text-xs text-red-600">State is required</p> : null}
             {!isNewUserPostalValid ? <p className="text-xs text-red-600">PIN code must be 6 digits</p> : null}
             {!isNewUserCountryValid ? <p className="text-xs text-red-600">Country is required</p> : null}
+
+            {newUser.role === "CUSTOMER" ? (
+              <div className="space-y-3 rounded-md border p-3">
+                <p className="text-sm font-medium">Verified Measurement (Optional, by Admin)</p>
+                <Input
+                  placeholder="Measurement profile name (e.g. Admin Verified - Formal)"
+                  value={newUser.measurementName}
+                  onChange={(e) => setNewUser((prev) => ({ ...prev, measurementName: e.target.value }))}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input placeholder="Chest" type="number" value={newUser.chest} onChange={(e) => setNewUser((prev) => ({ ...prev, chest: e.target.value }))} />
+                  <Input placeholder="Waist" type="number" value={newUser.waist} onChange={(e) => setNewUser((prev) => ({ ...prev, waist: e.target.value }))} />
+                  <Input placeholder="Hip" type="number" value={newUser.hip} onChange={(e) => setNewUser((prev) => ({ ...prev, hip: e.target.value }))} />
+                  <Input placeholder="Shoulder" type="number" value={newUser.shoulder} onChange={(e) => setNewUser((prev) => ({ ...prev, shoulder: e.target.value }))} />
+                  <Input placeholder="Sleeve Length" type="number" value={newUser.sleeveLength} onChange={(e) => setNewUser((prev) => ({ ...prev, sleeveLength: e.target.value }))} />
+                  <Input placeholder="Garment Length" type="number" value={newUser.garmentLength} onChange={(e) => setNewUser((prev) => ({ ...prev, garmentLength: e.target.value }))} />
+                </div>
+                <Input
+                  placeholder="Measurement notes"
+                  value={newUser.measurementNotes}
+                  onChange={(e) => setNewUser((prev) => ({ ...prev, measurementNotes: e.target.value }))}
+                />
+              </div>
+            ) : null}
           </div>
 
           <DialogFooter className="justify-center gap-3">
@@ -682,6 +830,47 @@ export default function UsersPage() {
             </Button>
             <Button type="button" size="lg" className="min-w-40" onClick={createUser} disabled={!canCreateUser}>
               {creatingUser ? <><Spinner className="mr-2" />Creating...</> : "Create User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddMeasurementOpen} onOpenChange={setIsAddMeasurementOpen}>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Verified Measurement</DialogTitle>
+            <DialogDescription>
+              Add admin-verified measurement for {measurementTargetUser?.name || "customer"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-3">
+            <Input
+              placeholder="Measurement profile name"
+              value={measurementForm.name}
+              onChange={(e) => setMeasurementForm((prev) => ({ ...prev, name: e.target.value }))}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input placeholder="Chest" type="number" value={measurementForm.chest} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, chest: e.target.value }))} />
+              <Input placeholder="Waist" type="number" value={measurementForm.waist} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, waist: e.target.value }))} />
+              <Input placeholder="Hip" type="number" value={measurementForm.hip} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, hip: e.target.value }))} />
+              <Input placeholder="Shoulder" type="number" value={measurementForm.shoulder} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, shoulder: e.target.value }))} />
+              <Input placeholder="Sleeve Length" type="number" value={measurementForm.sleeveLength} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, sleeveLength: e.target.value }))} />
+              <Input placeholder="Garment Length" type="number" value={measurementForm.garmentLength} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, garmentLength: e.target.value }))} />
+            </div>
+            <Input
+              placeholder="Notes"
+              value={measurementForm.notes}
+              onChange={(e) => setMeasurementForm((prev) => ({ ...prev, notes: e.target.value }))}
+            />
+          </div>
+
+          <DialogFooter className="justify-center gap-3">
+            <Button type="button" variant="outline" onClick={() => setIsAddMeasurementOpen(false)} disabled={creatingMeasurement}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={addMeasurementForUser} disabled={!canCreateMeasurement}>
+              {creatingMeasurement ? <><Spinner className="mr-2" />Saving...</> : "Save Verified Measurement"}
             </Button>
           </DialogFooter>
         </DialogContent>

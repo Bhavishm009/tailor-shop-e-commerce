@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Dialog,
@@ -255,7 +256,13 @@ export default function AdminTailorAccountsPage() {
     <div className="p-4 md:p-8 space-y-6">
       <h1 className="text-2xl md:text-3xl font-bold">Tailor Accounts</h1>
       <FeedbackToasts error={error} success={success} />
-      {loading ? <Card className="p-4 text-muted-foreground">Loading...</Card> : null}
+      {loading ? (
+        <Card className="p-4 space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-5 w-full" />
+          ))}
+        </Card>
+      ) : null}
       {!loading && !data ? (
         <Card className="p-0">
           <Empty className="border-0 p-10">

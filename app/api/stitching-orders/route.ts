@@ -3,7 +3,8 @@ import { db } from "@/lib/db"
 import { requireRole } from "@/lib/api-auth"
 import { createOrderNotification } from "@/lib/notifications"
 import { resolveMeasurementType } from "@/lib/measurement-presets"
-import type { ClothType } from "@prisma/client"
+import { getClothOptionById } from "@/lib/cloth-options"
+import type { ClothSource, ClothType } from "@prisma/client"
 
 const CLOTH_TYPES: ClothType[] = ["COTTON", "SILK", "WOOL", "LINEN", "POLYESTER", "BLEND", "CUSTOM"]
 
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as {
       clothType?: ClothType
+      clothSource?: ClothSource
+      clothOptionId?: string
       fabricImage?: string | null
       serviceKey?: string
       measurementId?: string
@@ -73,6 +76,14 @@ export async function POST(request: NextRequest) {
 
     if (!body.clothType || !CLOTH_TYPES.includes(body.clothType)) {
       return NextResponse.json({ error: "Invalid cloth type" }, { status: 400 })
+    }
+    const clothSource = body.clothSource === "FROM_US" ? "FROM_US" : "OWN"
+    const clothOption = body.clothOptionId ? getClothOptionById(body.clothOptionId) : null
+    if (clothSource === "FROM_US" && !clothOption) {
+      return NextResponse.json({ error: "Please select cloth from our options." }, { status: 400 })
+    }
+    if (clothSource === "FROM_US" && clothOption && clothOption.clothType !== body.clothType) {
+      return NextResponse.json({ error: "Selected cloth type does not match cloth option." }, { status: 400 })
     }
 
     const measurementType = resolveMeasurementType(service.key, service.name)
@@ -143,14 +154,22 @@ export async function POST(request: NextRequest) {
                 : null,
             )
 
+    const stitchingPrice = service.customerPrice
+    const clothPrice = clothSource === "FROM_US" ? clothOption?.price || 0 : 0
+    const totalPrice = stitchingPrice + clothPrice
+
     const stitchingOrder = await db.stitchingOrder.create({
       data: {
         customerId: session.user.id,
         measurementId: measurementId!,
         clothType: body.clothType,
+        clothSource,
+        clothName: clothSource === "FROM_US" ? clothOption?.name || null : null,
+        clothPrice,
+        stitchingPrice,
         serviceKey: service.key,
         stitchingService: service.name,
-        price: service.customerPrice,
+        price: totalPrice,
         notes: body.notes,
         fabricImage: body.fabricImage,
         contactName: body.contactName || session.user.name,

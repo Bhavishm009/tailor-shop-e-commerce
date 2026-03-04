@@ -10,6 +10,7 @@ import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { RowActionsMenu } from "@/components/admin/row-actions-menu"
 import {
   Table,
   TableBody,
@@ -284,10 +285,29 @@ export default function ReviewsPage() {
         {selectedRowIds.length > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <p>Selected: <span className="font-medium">{selectedRowIds.length}</span></p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulk("approve")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "approve" ? "Updating..." : "Approve Selected"}</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulk("pending")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "pending" ? "Updating..." : "Mark Pending"}</Button>
-              <Button type="button" size="sm" variant="destructive" onClick={() => runBulk("delete")} disabled={bulkActionLoading !== null}>{bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected"}</Button>
+            <div className="flex items-center gap-2">
+              <RowActionsMenu
+                triggerLabel="Bulk Actions"
+                items={[
+                  {
+                    label: bulkActionLoading === "approve" ? "Updating..." : "Approve Selected",
+                    onSelect: () => void runBulk("approve"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "pending" ? "Updating..." : "Mark Pending",
+                    onSelect: () => void runBulk("pending"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected",
+                    onSelect: () => void runBulk("delete"),
+                    disabled: bulkActionLoading !== null,
+                    destructive: true,
+                    separatorBefore: true,
+                  },
+                ]}
+              />
               <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedRowIds([])} disabled={bulkActionLoading !== null}>Clear Selection</Button>
             </div>
           </div>
@@ -354,33 +374,41 @@ export default function ReviewsPage() {
                       <TableCell className="max-w-sm truncate">{review.comment || "-"}</TableCell>
                       <TableCell>{new Date(review.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={async () => {
-                            setError("")
-                            setSuccess("")
-                            const ok = await setReviewStatus(review.id, !review.isApproved)
-                            if (ok) {
-                              setSuccess("Review status updated.")
-                              await loadReviews()
-                            } else {
-                              setError("Failed to update review status.")
-                            }
-                          }}>
-                            {review.isApproved ? "Mark Pending" : "Approve"}
-                          </Button>
-                          <Button type="button" variant="destructive" size="sm" onClick={async () => {
-                            setError("")
-                            setSuccess("")
-                            const ok = await deleteReview(review.id)
-                            if (ok) {
-                              setSuccess("Review deleted.")
-                              await loadReviews()
-                            } else {
-                              setError("Failed to delete review.")
-                            }
-                          }}>
-                            Delete
-                          </Button>
+                        <div className="flex items-center justify-end">
+                          <RowActionsMenu
+                            items={[
+                              {
+                                label: review.isApproved ? "Mark Pending" : "Approve",
+                                onSelect: async () => {
+                                  setError("")
+                                  setSuccess("")
+                                  const ok = await setReviewStatus(review.id, !review.isApproved)
+                                  if (ok) {
+                                    setSuccess("Review status updated.")
+                                    await loadReviews()
+                                  } else {
+                                    setError("Failed to update review status.")
+                                  }
+                                },
+                              },
+                              {
+                                label: "Delete",
+                                onSelect: async () => {
+                                  setError("")
+                                  setSuccess("")
+                                  const ok = await deleteReview(review.id)
+                                  if (ok) {
+                                    setSuccess("Review deleted.")
+                                    await loadReviews()
+                                  } else {
+                                    setError("Failed to delete review.")
+                                  }
+                                },
+                                destructive: true,
+                                separatorBefore: true,
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

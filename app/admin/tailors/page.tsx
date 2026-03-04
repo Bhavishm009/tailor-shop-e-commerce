@@ -9,6 +9,8 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import { Spinner } from "@/components/ui/spinner"
+import { Skeleton } from "@/components/ui/skeleton"
+import { RowActionsMenu } from "@/components/admin/row-actions-menu"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
@@ -387,16 +389,29 @@ export default function TailorsPage() {
         {selectedRowIds.length > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <p>Selected: <span className="font-medium">{selectedRowIds.length}</span></p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulk("activate")} disabled={bulkActionLoading !== null}>
-                {bulkActionLoading === "activate" ? "Updating..." : "Set Active"}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => runBulk("deactivate")} disabled={bulkActionLoading !== null}>
-                {bulkActionLoading === "deactivate" ? "Updating..." : "Set Inactive"}
-              </Button>
-              <Button type="button" size="sm" variant="destructive" onClick={() => runBulk("delete")} disabled={bulkActionLoading !== null}>
-                {bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected"}
-              </Button>
+            <div className="flex items-center gap-2">
+              <RowActionsMenu
+                triggerLabel="Bulk Actions"
+                items={[
+                  {
+                    label: bulkActionLoading === "activate" ? "Updating..." : "Set Active",
+                    onSelect: () => void runBulk("activate"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "deactivate" ? "Updating..." : "Set Inactive",
+                    onSelect: () => void runBulk("deactivate"),
+                    disabled: bulkActionLoading !== null,
+                  },
+                  {
+                    label: bulkActionLoading === "delete" ? "Deleting..." : "Delete Selected",
+                    onSelect: () => void runBulk("delete"),
+                    disabled: bulkActionLoading !== null,
+                    destructive: true,
+                    separatorBefore: true,
+                  },
+                ]}
+              />
               <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedRowIds([])} disabled={bulkActionLoading !== null}>
                 Clear Selection
               </Button>
@@ -409,7 +424,20 @@ export default function TailorsPage() {
         )}
 
         {loading ? (
-          <p className="text-muted-foreground">Loading tailors...</p>
+          <div className="rounded-md border p-3">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="grid grid-cols-12 gap-2 border-b py-3 last:border-b-0">
+                <Skeleton className="col-span-1 h-5 w-5 rounded-sm" />
+                <Skeleton className="col-span-2 h-5 w-24" />
+                <Skeleton className="col-span-2 h-5 w-28" />
+                <Skeleton className="col-span-2 h-5 w-28" />
+                <Skeleton className="col-span-1 h-5 w-12" />
+                <Skeleton className="col-span-1 h-5 w-12" />
+                <Skeleton className="col-span-1 h-5 w-16" />
+                <Skeleton className="col-span-2 h-8 w-24 justify-self-end" />
+              </div>
+            ))}
+          </div>
         ) : totalRecords === 0 ? (
           <Empty className="border-0 p-10">
             <EmptyHeader>
@@ -450,16 +478,22 @@ export default function TailorsPage() {
                         <Badge variant={tailor.isActive ? "default" : "secondary"}>{tailor.isActive ? "active" : "inactive"}</Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => openSpecsDialog(tailor)}>
-                            Manage Specs
-                          </Button>
-                          <Button type="button" variant="outline" size="sm" onClick={() => runSingle(tailor.id, tailor.isActive ? "deactivate" : "activate")}>
-                            {tailor.isActive ? "Set Inactive" : "Set Active"}
-                          </Button>
-                          <Button type="button" variant="destructive" size="sm" onClick={() => runSingle(tailor.id, "delete")}>
-                            Delete
-                          </Button>
+                        <div className="flex items-center justify-end">
+                          <RowActionsMenu
+                            items={[
+                              { label: "Manage Specs", onSelect: () => openSpecsDialog(tailor) },
+                              {
+                                label: tailor.isActive ? "Set Inactive" : "Set Active",
+                                onSelect: () => void runSingle(tailor.id, tailor.isActive ? "deactivate" : "activate"),
+                              },
+                              {
+                                label: "Delete",
+                                onSelect: () => void runSingle(tailor.id, "delete"),
+                                destructive: true,
+                                separatorBefore: true,
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

@@ -15,6 +15,7 @@ import { ChevronLeft, Upload } from "lucide-react"
 import { uploadFile, isValidImageFile } from "@/lib/file-upload"
 import { FeedbackToasts } from "@/components/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
+import type { ClothType } from "@prisma/client"
 
 const clothTypes = [
   { value: "COTTON", label: "Cotton" },
@@ -37,13 +38,18 @@ export default function CustomStitchingPage() {
   const [success, setSuccess] = useState("")
   const [uploadingFabric, setUploadingFabric] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [measurementOptions, setMeasurementOptions] = useState<Array<{ id: string; name: string }>>([])
+  const [measurementOptions, setMeasurementOptions] = useState<Array<{ id: string; name: string; isVerified?: boolean }>>([])
   const [serviceOptions, setServiceOptions] = useState<
     Array<{ id: string; key: string; name: string; category: string; customerPrice: number; tailorRate: number }>
   >([])
+  const [clothOptions, setClothOptions] = useState<
+    Array<{ id: string; name: string; clothType: ClothType; price: number; description?: string }>
+  >([])
 
   const [formData, setFormData] = useState({
+    clothSource: "OWN" as "OWN" | "FROM_US",
     clothType: "",
+    clothOptionId: "",
     fabricImageUrl: "",
     serviceKey: "",
     measurementId: "",
@@ -58,8 +64,9 @@ export default function CustomStitchingPage() {
         fetch("/api/measurements", { cache: "no-store" }),
         fetch("/api/stitching-services", { cache: "no-store" }),
       ])
+      const clothResponse = await fetch("/api/cloth-options", { cache: "no-store" })
       if (measurementResponse.ok) {
-        const measurementData = (await measurementResponse.json()) as Array<{ id: string; name: string }>
+        const measurementData = (await measurementResponse.json()) as Array<{ id: string; name: string; isVerified?: boolean }>
         setMeasurementOptions(measurementData)
       }
       if (serviceResponse.ok) {
@@ -73,11 +80,24 @@ export default function CustomStitchingPage() {
         }>
         setServiceOptions(serviceData)
       }
+      if (clothResponse.ok) {
+        const clothData = (await clothResponse.json()) as Array<{
+          id: string
+          name: string
+          clothType: ClothType
+          price: number
+          description?: string
+        }>
+        setClothOptions(clothData)
+      }
     }
     loadMeta()
   }, [])
 
   const selectedService = serviceOptions.find((service) => service.key === formData.serviceKey)
+  const selectedClothOption = clothOptions.find((item) => item.id === formData.clothOptionId)
+  const clothCharge = formData.clothSource === "FROM_US" ? selectedClothOption?.price || 0 : 0
+  const estimatedTotal = (selectedService?.customerPrice || 0) + clothCharge
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -115,6 +135,10 @@ export default function CustomStitchingPage() {
       setError("Please complete all required fields.")
       return
     }
+    if (formData.clothSource === "FROM_US" && !formData.clothOptionId) {
+      setError("Please select cloth from our options.")
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -123,6 +147,8 @@ export default function CustomStitchingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clothType: formData.clothType,
+          clothSource: formData.clothSource,
+          clothOptionId: formData.clothOptionId || undefined,
           fabricImage: formData.fabricImageUrl || null,
           serviceKey: formData.serviceKey,
           measurementId: formData.measurementId,
@@ -178,6 +204,29 @@ export default function CustomStitchingPage() {
               <h2 className="text-xl font-bold mb-6">Select Fabric Type</h2>
               <div className="space-y-4 mb-6">
                 <div>
+                  <label className="block text-sm font-medium mb-3">Cloth Source</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({ ...prev, clothSource: "OWN", clothOptionId: "" }))
+                      }
+                      className={`rounded-lg border p-3 text-left ${formData.clothSource === "OWN" ? "border-primary bg-primary/5" : ""}`}
+                    >
+                      <p className="font-medium">I have my own cloth</p>
+                      <p className="text-xs text-muted-foreground">No cloth charge</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, clothSource: "FROM_US" }))}
+                      className={`rounded-lg border p-3 text-left ${formData.clothSource === "FROM_US" ? "border-primary bg-primary/5" : ""}`}
+                    >
+                      <p className="font-medium">Choose cloth from us</p>
+                      <p className="text-xs text-muted-foreground">Cloth charge will be added</p>
+                    </button>
+                  </div>
+                </div>
+                <div>
                   <label className="block text-sm font-medium mb-3">Cloth Type</label>
                   <Select value={formData.clothType} onValueChange={(value) => handleChange(value, "clothType")}>
                     <SelectTrigger>
@@ -193,7 +242,39 @@ export default function CustomStitchingPage() {
                   </Select>
                 </div>
 
-                <div>
+                {formData.clothSource === "FROM_US" ? (
+                  <div>
+                    <label className="block text-sm font-medium mb-3">Choose Cloth Option</label>
+                    <Select
+                      value={formData.clothOptionId}
+                      onValueChange={(value) => {
+                        const option = clothOptions.find((item) => item.id === value)
+                        setFormData((prev) => ({
+                          ...prev,
+                          clothOptionId: value,
+                          clothType: option?.clothType || prev.clothType,
+                        }))
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select cloth option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clothOptions.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} ({item.clothType}) - Rs. {formatCurrency(item.price)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedClothOption?.description ? (
+                      <p className="mt-2 text-xs text-muted-foreground">{selectedClothOption.description}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {formData.clothSource === "OWN" ? (
+                  <div>
                   <label className="block text-sm font-medium mb-3">Upload Fabric Image</label>
                   <div className="border-2 border-dashed rounded-lg p-8 text-center">
                     <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
@@ -218,6 +299,7 @@ export default function CustomStitchingPage() {
                     {formData.fabricImageUrl ? <p className="text-sm text-green-600 mt-2">Fabric image uploaded</p> : null}
                   </div>
                 </div>
+                ) : null}
               </div>
 
               <Button type="button" onClick={() => setStep(2)} disabled={!formData.clothType}>
@@ -276,7 +358,9 @@ export default function CustomStitchingPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {measurementOptions.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} {item.isVerified ? "- Verified" : "- Suggested"}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -295,7 +379,9 @@ export default function CustomStitchingPage() {
 
                 <div className="bg-secondary p-4 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-2">Estimated Price</p>
-                  <p className="text-3xl font-bold">Rs. {formatCurrency(selectedService?.customerPrice ?? 0)}</p>
+                  <p className="text-sm text-muted-foreground">Stitching: Rs. {formatCurrency(selectedService?.customerPrice ?? 0)}</p>
+                  <p className="text-sm text-muted-foreground">Cloth: Rs. {formatCurrency(clothCharge)}</p>
+                  <p className="text-3xl font-bold mt-1">Rs. {formatCurrency(estimatedTotal)}</p>
                 </div>
               </div>
 

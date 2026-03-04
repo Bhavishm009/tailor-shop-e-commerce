@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { requireAuth } from "@/lib/api-auth"
+import { deleteGuestSubscriptionsByEndpoints } from "@/lib/guest-push-db"
 
 export async function POST(request: Request) {
   try {
@@ -50,6 +51,10 @@ export async function POST(request: Request) {
       where: { id: session.user.id },
       data: { notifyPush: true },
     })
+
+    // If this endpoint was previously saved as a guest subscription,
+    // remove it to avoid duplicate broadcast pushes.
+    await deleteGuestSubscriptionsByEndpoints([body.endpoint])
 
     return NextResponse.json({ success: true })
   } catch (error) {

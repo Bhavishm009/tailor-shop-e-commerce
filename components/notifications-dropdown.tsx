@@ -8,6 +8,7 @@ import { formatDistanceToNow } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { useRealtimeSocket } from "@/hooks/use-realtime-socket"
 import { buildPushUserAgent } from "@/lib/push-client-id"
+import { getOrCreateVisitorId } from "@/lib/visitor-id"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +30,36 @@ type NotificationItem = {
 
 type Props = {
   className?: string
+}
+
+async function persistPushSubscription(payload: {
+  endpoint: string
+  keys?: { p256dh?: string; auth?: string }
+  userAgent: string
+}) {
+  const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" }).catch(() => null)
+  const sessionData = sessionResponse
+    ? ((await sessionResponse.json().catch(() => ({}))) as { user?: { id?: string } })
+    : {}
+
+  if (sessionData?.user?.id) {
+    const userResponse = await fetch("/api/notifications/push-subscription", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (userResponse.ok) return true
+  }
+
+  const guestResponse = await fetch("/api/notifications/guest-subscription", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      visitorId: getOrCreateVisitorId(),
+      ...payload,
+    }),
+  })
+  return guestResponse.ok
 }
 
 export function NotificationsDropdown({ className }: Props) {
@@ -129,7 +160,11 @@ export function NotificationsDropdown({ className }: Props) {
         return
       }
 
-      const registration = await navigator.serviceWorker.getRegistration()
+      let registration = await navigator.serviceWorker.getRegistration()
+      if (!registration) {
+        await navigator.serviceWorker.register("/sw.js", { scope: "/" })
+        registration = await navigator.serviceWorker.ready
+      }
       if (!registration) return
 
       const vapidKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY
@@ -147,16 +182,12 @@ export function NotificationsDropdown({ className }: Props) {
         })
       }
 
-      const saveResponse = await fetch("/api/notifications/push-subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          endpoint: subscription.endpoint,
-          keys: subscription.toJSON().keys,
-          userAgent: buildPushUserAgent(),
-        }),
+      const saveOk = await persistPushSubscription({
+        endpoint: subscription.endpoint,
+        keys: subscription.toJSON().keys,
+        userAgent: buildPushUserAgent(),
       })
-      if (!saveResponse.ok) {
+      if (!saveOk) {
         throw new Error("Failed to save push subscription")
       }
 
@@ -206,16 +237,12 @@ export function NotificationsDropdown({ className }: Props) {
       })
     }
 
-    const response = await fetch("/api/notifications/push-subscription", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        endpoint: subscription.endpoint,
-        keys: subscription.toJSON().keys,
-        userAgent: buildPushUserAgent(),
-      }),
+    const responseOk = await persistPushSubscription({
+      endpoint: subscription.endpoint,
+      keys: subscription.toJSON().keys,
+      userAgent: buildPushUserAgent(),
     })
-    if (response.ok) {
+    if (responseOk) {
       setPushSubscribed(true)
     }
   }

@@ -15,6 +15,10 @@ type CustomOrderDetail = {
   id: string
   stitchingService: string
   clothType: string
+  clothSource?: "OWN" | "FROM_US"
+  clothName?: string | null
+  clothPrice?: number
+  stitchingPrice?: number
   status: "PENDING" | "ASSIGNED" | "STITCHING" | "QC" | "COMPLETED" | "DELIVERED" | "CANCELLED"
   price: number
   notes?: string | null
@@ -196,6 +200,8 @@ export default function CustomerCustomOrderDetailPage() {
       y += 5
       doc.text(`Cloth Type: ${order.clothType}`, 14, y)
       y += 5
+      doc.text(`Cloth Source: ${order.clothSource === "FROM_US" ? "From TailorHub" : "Own Cloth"}`, 14, y)
+      y += 5
       doc.text(`Total Amount: Rs. ${order.price.toFixed(2)}`, 14, y)
       y += 5
       doc.text(`Advance Received: Rs. ${advancePaid.toFixed(2)}`, 14, y)
@@ -282,6 +288,10 @@ export default function CustomerCustomOrderDetailPage() {
             <p className="font-semibold mt-1">{order.clothType}</p>
           </Card>
           <Card className="p-4">
+            <p className="text-xs text-muted-foreground">Cloth Source</p>
+            <p className="font-semibold mt-1">{order.clothSource === "FROM_US" ? "From TailorHub" : "Own Cloth"}</p>
+          </Card>
+          <Card className="p-4">
             <p className="text-xs text-muted-foreground">Price</p>
             <p className="font-semibold mt-1">Rs. {order.price.toFixed(2)}</p>
           </Card>
@@ -323,8 +333,18 @@ export default function CustomerCustomOrderDetailPage() {
               </thead>
               <tbody>
                 <tr className="border-t">
-                  <td className="px-3 py-2">{order.stitchingService}</td>
-                  <td className="px-3 py-2 text-right">Rs. {order.price.toFixed(2)}</td>
+                  <td className="px-3 py-2">Stitching - {order.stitchingService}</td>
+                  <td className="px-3 py-2 text-right">Rs. {(order.stitchingPrice ?? order.price).toFixed(2)}</td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-3 py-2">
+                    Cloth {order.clothSource === "FROM_US" ? `(From TailorHub${order.clothName ? ` - ${order.clothName}` : ""})` : "(Own Cloth)"}
+                  </td>
+                  <td className="px-3 py-2 text-right">Rs. {(order.clothPrice ?? 0).toFixed(2)}</td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-3 py-2 font-medium">Total</td>
+                  <td className="px-3 py-2 text-right font-medium">Rs. {order.price.toFixed(2)}</td>
                 </tr>
                 <tr className="border-t">
                   <td className="px-3 py-2">Advance Received</td>

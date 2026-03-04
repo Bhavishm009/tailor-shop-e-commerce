@@ -30,10 +30,6 @@ export async function POST(request: Request) {
       select: { id: true },
     })
 
-    if (users.length === 0) {
-      return NextResponse.json({ error: "No users available." }, { status: 400 })
-    }
-
     const chunks: string[][] = []
     const ids = users.map((user) => user.id)
     for (let i = 0; i < ids.length; i += 25) {
@@ -54,6 +50,50 @@ export async function POST(request: Request) {
         ),
       )
       sent += results.filter((result) => result.status === "fulfilled").length
+    }
+
+    const userPushSubscriptions = await db.pushSubscription.findMany({
+      select: {
+        endpoint: true,
+        p256dh: true,
+        auth: true,
+      },
+    })
+
+    let userPushSent = 0
+    let userPushTotal = userPushSubscriptions.length
+    if (userPushSubscriptions.length > 0) {
+      const userPushResults = await Promise.all(
+        userPushSubscriptions.map(async (subscription) => ({
+          endpoint: subscription.endpoint,
+          result: await sendWebPushNotification(
+            {
+              endpoint: subscription.endpoint,
+              p256dh: subscription.p256dh,
+              auth: subscription.auth,
+            },
+            {
+              title,
+              body: message,
+              url: link || "/",
+            },
+          ),
+        })),
+      )
+
+      const staleUserEndpoints = userPushResults
+        .filter((result) => result.result.removeSubscription)
+        .map((result) => result.endpoint)
+
+      if (staleUserEndpoints.length > 0) {
+        await db.pushSubscription.deleteMany({
+          where: {
+            endpoint: { in: staleUserEndpoints },
+          },
+        })
+      }
+
+      userPushSent = userPushResults.filter((result) => result.result.success).length
     }
 
     let guestSent = 0
@@ -93,6 +133,8 @@ export async function POST(request: Request) {
       success: true,
       sent,
       total: users.length,
+      userPushSent,
+      userPushTotal,
       guestSent,
       guestTotal,
     })
