@@ -13,6 +13,7 @@ import {
 } from "@prisma/client"
 import { db } from "@/lib/db"
 import { hashPassword } from "@/lib/auth-utils"
+import { CLOTH_OPTIONS } from "@/lib/cloth-options"
 
 type MasterRecord = {
   id: string
@@ -62,8 +63,26 @@ async function clearDatabase() {
   await db.tailorProfile.deleteMany()
   await db.product.deleteMany()
   await db.stitchingService.deleteMany()
+  await db.fabricOption.deleteMany()
   await db.productMaster.deleteMany()
   await db.user.deleteMany()
+}
+
+async function seedFabricOptions() {
+  await db.fabricOption.createMany({
+    data: CLOTH_OPTIONS.map((item, index) => ({
+      id: item.id,
+      name: item.name,
+      clothType: item.clothType,
+      buyRatePerMeter: item.buyRatePerMeter,
+      sellRatePerMeter: item.sellRatePerMeter,
+      stockMeters: item.stockMeters + index * 10,
+      image: item.image || `https://ik.imagekit.io/demo/tailorhub/fabrics/${item.id}.jpg`,
+      description: item.description || "Seeded fabric option",
+      isActive: true,
+    })),
+    skipDuplicates: true,
+  })
 }
 
 async function seedMasters() {
@@ -395,6 +414,22 @@ async function seedCommerce(
         key: `service_${i}`,
         category: i % 2 === 0 ? "Men" : "Women",
         name: `Stitching Service ${i}`,
+        measurementType: i % 2 === 0 ? "SHIRT" : "PANT",
+        measurementFields:
+          i % 2 === 0
+            ? [
+                { key: "chest", label: "Chest", unit: "in" },
+                { key: "waist", label: "Waist", unit: "in" },
+                { key: "shoulder", label: "Shoulder", unit: "in" },
+                { key: "sleeveLength", label: "Sleeve Length", unit: "in" },
+              ]
+            : [
+                { key: "waist", label: "Waist", unit: "in" },
+                { key: "hip", label: "Hip", unit: "in" },
+                { key: "inseam", label: "Inseam", unit: "in" },
+                { key: "outseam", label: "Outseam", unit: "in" },
+              ],
+        measurementGuideImage: i % 2 === 0 ? "/measurement-guides/shirt.svg" : "/measurement-guides/pant.svg",
         customerPrice: 350 + i * 40,
         tailorRate: 180 + i * 20,
         isActive: true,
@@ -480,10 +515,14 @@ async function seedCommerce(
         customerId: customer.id,
         measurementId: measurement.id,
         clothType: pick(Object.values(ClothType), i),
+        clothSource: i % 2 === 0 ? "FROM_US" : "OWN",
+        clothName: i % 2 === 0 ? pick(CLOTH_OPTIONS, i).name : null,
+        clothPrice: i % 2 === 0 ? 400 : 0,
+        stitchingPrice: service.customerPrice,
         fabricImage: `https://ik.imagekit.io/demo/tailorhub/stitching/fabric-${i + 1}.jpg`,
         serviceKey: service.key,
         stitchingService: service.name,
-        price: service.customerPrice,
+        price: service.customerPrice + (i % 2 === 0 ? 400 : 0),
         status: i % 4 === 0 ? StitchingOrderStatus.ASSIGNED : StitchingOrderStatus.STITCHING,
         contactName: customer.name,
         contactPhone: customer.phone,
@@ -641,6 +680,9 @@ async function main() {
 
     const users = await seedUsers()
     console.log("Seeded users (admin, 10 tailors, 12 customers)")
+
+    await seedFabricOptions()
+    console.log("Seeded fabric options with rates, stock and image")
 
     const catalog = await seedCatalog(masters)
     console.log("Seeded products, FAQs and blogs")

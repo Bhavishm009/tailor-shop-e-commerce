@@ -31,6 +31,7 @@ import {
 import { MeasurementGuidePanel } from "@/components/measurement-guide-panel"
 import { validateEmail, validateIndianMobile } from "@/lib/validation"
 import { toast } from "sonner"
+import type { ClothType } from "@prisma/client"
 
 type UserRecord = {
   id: string
@@ -63,6 +64,27 @@ type StitchingServiceOption = {
   measurementGuideImage?: string | null
 }
 
+type FabricOption = {
+  id: string
+  name: string
+  clothType: ClothType
+  buyRatePerMeter: number
+  sellRatePerMeter: number
+  stockMeters: number
+  image?: string | null
+  description?: string | null
+}
+
+const CLOTH_TYPE_OPTIONS: Array<{ value: ClothType; label: string }> = [
+  { value: "COTTON", label: "Cotton" },
+  { value: "SILK", label: "Silk" },
+  { value: "WOOL", label: "Wool" },
+  { value: "LINEN", label: "Linen" },
+  { value: "POLYESTER", label: "Polyester" },
+  { value: "BLEND", label: "Blend" },
+  { value: "CUSTOM", label: "Custom" },
+]
+
 const EMPTY_MEASUREMENT_VALUES: Record<string, string> = {}
 
 const createInitialMeasurementForm = () => ({
@@ -70,6 +92,13 @@ const createInitialMeasurementForm = () => ({
   name: "",
   notes: "",
   values: { ...EMPTY_MEASUREMENT_VALUES },
+  createOrder: false,
+  quantity: "1",
+  fabricMode: "WITHOUT_FABRIC" as "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC",
+  clothType: "",
+  fabricOptionId: "",
+  fabricMeters: "1",
+  ownFabricImage: "",
 })
 
 const createInitialUserForm = () => ({
@@ -90,6 +119,13 @@ const createInitialUserForm = () => ({
   measurementName: "",
   measurementNotes: "",
   measurementValues: { ...EMPTY_MEASUREMENT_VALUES },
+  bookOrderAfterMeasurement: false,
+  orderQuantity: "1",
+  orderFabricMode: "WITHOUT_FABRIC" as "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC",
+  orderClothType: "",
+  orderFabricOptionId: "",
+  orderFabricMeters: "1",
+  orderOwnFabricImage: "",
 })
 
 const getStartOfDay = (date: Date) => {
@@ -138,6 +174,8 @@ export default function UsersPage() {
   const [creatingMeasurement, setCreatingMeasurement] = useState(false)
   const [loadingServices, setLoadingServices] = useState(false)
   const [serviceOptions, setServiceOptions] = useState<StitchingServiceOption[]>([])
+  const [fabricOptions, setFabricOptions] = useState<FabricOption[]>([])
+  const [loadingFabrics, setLoadingFabrics] = useState(false)
   const [newUserFormSubmitted, setNewUserFormSubmitted] = useState(false)
   const [measurementTargetUser, setMeasurementTargetUser] = useState<{ id: string; name: string } | null>(null)
   const [measurementForm, setMeasurementForm] = useState(createInitialMeasurementForm)
@@ -154,11 +192,19 @@ export default function UsersPage() {
   const isNewUserPostalValid = !newUser.addAddress || /^\d{6}$/.test(newUser.postalCode)
   const selectedNewUserService = serviceOptions.find((service) => service.key === newUser.measurementServiceKey)
   const selectedNewUserMeasurementFields = selectedNewUserService?.measurementFields || []
+  const selectedNewUserFabric = fabricOptions.find((item) => item.id === newUser.orderFabricOptionId)
   const selectedMeasurementService = serviceOptions.find((service) => service.key === measurementForm.serviceKey)
   const selectedMeasurementFields = selectedMeasurementService?.measurementFields || []
+  const selectedMeasurementFabric = fabricOptions.find((item) => item.id === measurementForm.fabricOptionId)
   const isOptionalMeasurementValid =
     !newUser.measurementEnabled ||
     (newUser.measurementName.trim().length > 0 && (!serviceOptions.length || Boolean(newUser.measurementServiceKey)))
+  const isNewUserOrderConfigValid =
+    !newUser.measurementEnabled ||
+    !newUser.bookOrderAfterMeasurement ||
+    (Number(newUser.orderQuantity) >= 1 &&
+      (newUser.orderFabricMode !== "WITH_SHOP_FABRIC" || Boolean(newUser.orderFabricOptionId)) &&
+      (newUser.orderFabricMode !== "WITH_SHOP_FABRIC" || Number(newUser.orderFabricMeters) > 0))
   const canCreateUser =
     isNewUserNameValid &&
     isNewUserEmailValid &&
@@ -170,6 +216,7 @@ export default function UsersPage() {
     isNewUserCountryValid &&
     isNewUserPostalValid &&
     isOptionalMeasurementValid &&
+    isNewUserOrderConfigValid &&
     !creatingUser
   const canCreateMeasurement =
     measurementForm.name.trim().length > 0 &&
@@ -199,20 +246,31 @@ export default function UsersPage() {
   }, [])
 
   useEffect(() => {
-    const loadStitchingServices = async () => {
+    const loadMeta = async () => {
       setLoadingServices(true)
+      setLoadingFabrics(true)
       try {
-        const response = await fetch("/api/stitching-services", { cache: "no-store" })
-        if (!response.ok) return
-        const data = (await response.json()) as StitchingServiceOption[]
-        setServiceOptions(data)
+        const [servicesResponse, fabricsResponse] = await Promise.all([
+          fetch("/api/stitching-services", { cache: "no-store" }),
+          fetch("/api/cloth-options", { cache: "no-store" }),
+        ])
+        if (servicesResponse.ok) {
+          const data = (await servicesResponse.json()) as StitchingServiceOption[]
+          setServiceOptions(data)
+        }
+        if (fabricsResponse.ok) {
+          const data = (await fabricsResponse.json()) as FabricOption[]
+          setFabricOptions(data)
+        }
       } catch {
         setServiceOptions([])
+        setFabricOptions([])
       } finally {
         setLoadingServices(false)
+        setLoadingFabrics(false)
       }
     }
-    void loadStitchingServices()
+    void loadMeta()
   }, [])
 
   useEffect(() => {
@@ -545,7 +603,11 @@ export default function UsersPage() {
         }),
       })
 
-      const data = (await response.json()) as { error?: string }
+      const data = (await response.json()) as {
+        id?: string
+        createdMeasurementId?: string | null
+        error?: string
+      }
 
       if (!response.ok) {
         setError(data.error || "Failed to create customer.")
@@ -553,6 +615,64 @@ export default function UsersPage() {
       }
 
       setSuccess("User added successfully.")
+      if (
+        newUser.role === "CUSTOMER" &&
+        newUser.measurementEnabled &&
+        newUser.bookOrderAfterMeasurement &&
+        data.id &&
+        data.createdMeasurementId &&
+        newUser.measurementServiceKey
+      ) {
+        const quantity = Math.max(1, Number(newUser.orderQuantity) || 1)
+        const payloadItem: {
+          serviceKey: string
+          measurementId: string
+          quantity: number
+          fabricMode: "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC"
+          clothType?: ClothType
+          fabricOptionId?: string
+          fabricMeters?: number
+          fabricImage?: string | null
+          notes?: string
+        } = {
+          serviceKey: newUser.measurementServiceKey,
+          measurementId: data.createdMeasurementId,
+          quantity,
+          fabricMode: newUser.orderFabricMode,
+          notes: newUser.measurementNotes || undefined,
+        }
+
+        if (newUser.orderFabricMode === "WITH_SHOP_FABRIC") {
+          if (!newUser.orderFabricOptionId) {
+            setError("User created, but order not created: fabric option missing.")
+          } else {
+            payloadItem.fabricOptionId = newUser.orderFabricOptionId
+            payloadItem.fabricMeters = Number(newUser.orderFabricMeters) || 1
+          }
+        } else if (newUser.orderFabricMode === "WITH_OWN_FABRIC") {
+          if (newUser.orderClothType) payloadItem.clothType = newUser.orderClothType as ClothType
+          payloadItem.fabricImage = newUser.orderOwnFabricImage || null
+        } else if (newUser.orderClothType) {
+          payloadItem.clothType = newUser.orderClothType as ClothType
+        }
+
+        if (!(newUser.orderFabricMode === "WITH_SHOP_FABRIC" && !newUser.orderFabricOptionId)) {
+          const orderResponse = await fetch("/api/admin/custom-orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId: data.id,
+              items: [payloadItem],
+            }),
+          })
+          if (orderResponse.ok) {
+            setSuccess("User, verified measurement, and order created successfully.")
+          } else {
+            const orderData = (await orderResponse.json().catch(() => ({ error: "Failed to create order." }))) as { error?: string }
+            setError(orderData.error || "User created, but order creation failed.")
+          }
+        }
+      }
       setNewUser(createInitialUserForm())
       setNewUserFormSubmitted(false)
       setIsAddCustomerOpen(false)
@@ -600,12 +720,87 @@ export default function UsersPage() {
           measurementData,
         }),
       })
-      const data = (await response.json().catch(() => ({ error: "Failed to add measurement." }))) as { error?: string }
+      const data = (await response.json().catch(() => ({ error: "Failed to add measurement." }))) as {
+        id?: string
+        error?: string
+      }
       if (!response.ok) {
         setError(data.error || "Failed to add measurement.")
         return
       }
-      setSuccess("Verified measurement added successfully.")
+
+      if (measurementForm.createOrder) {
+        const quantity = Math.max(1, Number(measurementForm.quantity) || 1)
+        const payloadItem: {
+          serviceKey: string
+          measurementId: string
+          quantity: number
+          fabricMode: "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC"
+          clothType?: ClothType
+          fabricOptionId?: string
+          fabricMeters?: number
+          fabricImage?: string | null
+          notes?: string
+        } = {
+          serviceKey: measurementForm.serviceKey,
+          measurementId: data.id!,
+          quantity,
+          fabricMode: measurementForm.fabricMode,
+          notes: measurementForm.notes,
+        }
+
+        if (measurementForm.fabricMode === "WITH_SHOP_FABRIC") {
+          if (!measurementForm.fabricOptionId) {
+            setError("Select fabric for with-fabric order.")
+            return
+          }
+          const meters = Number(measurementForm.fabricMeters)
+          if (!Number.isFinite(meters) || meters <= 0) {
+            setError("Enter valid fabric meters.")
+            return
+          }
+          if (selectedMeasurementFabric) {
+            const required = meters * quantity
+            if (required > selectedMeasurementFabric.stockMeters) {
+              setError(`Insufficient stock for ${selectedMeasurementFabric.name}. Required ${required.toFixed(2)}m.`)
+              return
+            }
+          }
+          payloadItem.fabricOptionId = measurementForm.fabricOptionId
+          payloadItem.fabricMeters = meters
+        } else if (measurementForm.fabricMode === "WITH_OWN_FABRIC") {
+          if (!measurementForm.clothType) {
+            setError("Select cloth type for own fabric order.")
+            return
+          }
+          payloadItem.clothType = measurementForm.clothType as ClothType
+          payloadItem.fabricImage = measurementForm.ownFabricImage || null
+        } else {
+          if (measurementForm.clothType) {
+            payloadItem.clothType = measurementForm.clothType as ClothType
+          }
+        }
+
+        const orderResponse = await fetch("/api/admin/custom-orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerId: measurementTargetUser.id,
+            items: [payloadItem],
+          }),
+        })
+        const orderData = (await orderResponse.json().catch(() => ({ error: "Failed to create order." }))) as { error?: string }
+        if (!orderResponse.ok) {
+          setError(orderData.error || "Verified measurement added, but order creation failed.")
+          return
+        }
+      }
+
+      setSuccess(
+        measurementForm.createOrder
+          ? "Verified measurement added and order booked successfully."
+          : "Verified measurement added successfully.",
+      )
       setIsAddMeasurementOpen(false)
     } finally {
       setCreatingMeasurement(false)
@@ -1033,6 +1228,13 @@ export default function UsersPage() {
                             measurementName: "",
                             measurementNotes: "",
                             measurementValues: {},
+                            bookOrderAfterMeasurement: false,
+                            orderQuantity: "1",
+                            orderFabricMode: "WITHOUT_FABRIC",
+                            orderClothType: "",
+                            orderFabricOptionId: "",
+                            orderFabricMeters: "1",
+                            orderOwnFabricImage: "",
                           }))
                         }
                       >
@@ -1040,7 +1242,7 @@ export default function UsersPage() {
                       </Button>
                     </div>
                     <select
-                      className="h-10 rounded-md border bg-background px-3"
+                      className="h-10 rounded-md border bg-background w-full"
                       value={newUser.measurementServiceKey}
                       onChange={(e) =>
                         setNewUser((prev) => ({
@@ -1104,6 +1306,110 @@ export default function UsersPage() {
                       value={newUser.measurementNotes}
                       onChange={(e) => setNewUser((prev) => ({ ...prev, measurementNotes: e.target.value }))}
                     />
+                    <div className="space-y-3 rounded-md border p-3">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={newUser.bookOrderAfterMeasurement}
+                          onChange={(e) => setNewUser((prev) => ({ ...prev, bookOrderAfterMeasurement: e.target.checked }))}
+                        />
+                        Book order after creating this user
+                      </label>
+                      {newUser.bookOrderAfterMeasurement ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <Input
+                              type="number"
+                              min={1}
+                              placeholder="Quantity"
+                              value={newUser.orderQuantity}
+                              onChange={(e) => setNewUser((prev) => ({ ...prev, orderQuantity: e.target.value }))}
+                            />
+                            <select
+                              className="h-10 rounded-md border bg-background px-3"
+                              value={newUser.orderFabricMode}
+                              onChange={(e) =>
+                                setNewUser((prev) => ({
+                                  ...prev,
+                                  orderFabricMode: e.target.value as "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC",
+                                  orderFabricOptionId: "",
+                                  orderFabricMeters: "1",
+                                }))
+                              }
+                            >
+                              <option value="WITHOUT_FABRIC">Without Fabric</option>
+                              <option value="WITH_OWN_FABRIC">With Own Fabric</option>
+                              <option value="WITH_SHOP_FABRIC">With Fabric From Us</option>
+                            </select>
+                          </div>
+                          {newUser.orderFabricMode !== "WITH_SHOP_FABRIC" ? (
+                            <select
+                              className="h-10 rounded-md border bg-background px-3"
+                              value={newUser.orderClothType}
+                              onChange={(e) => setNewUser((prev) => ({ ...prev, orderClothType: e.target.value }))}
+                            >
+                              <option value="">Select cloth type</option>
+                              {CLOTH_TYPE_OPTIONS.map((item) => (
+                                <option key={item.value} value={item.value}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
+                          {newUser.orderFabricMode === "WITH_OWN_FABRIC" ? (
+                            <Input
+                              placeholder="Own fabric image URL (optional)"
+                              value={newUser.orderOwnFabricImage}
+                              onChange={(e) => setNewUser((prev) => ({ ...prev, orderOwnFabricImage: e.target.value }))}
+                            />
+                          ) : null}
+                          {newUser.orderFabricMode === "WITH_SHOP_FABRIC" ? (
+                            <div className="space-y-3">
+                              <select
+                                className="h-10 rounded-md border bg-background px-3"
+                                value={newUser.orderFabricOptionId}
+                                onChange={(e) => setNewUser((prev) => ({ ...prev, orderFabricOptionId: e.target.value }))}
+                              >
+                                <option value="">Select fabric option</option>
+                                {fabricOptions
+                                  .filter((item) => item.stockMeters > 0)
+                                  .map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.name} ({item.clothType}) - Rs. {item.sellRatePerMeter}/m - Stock {item.stockMeters.toFixed(2)}m
+                                    </option>
+                                  ))}
+                              </select>
+                              <Input
+                                type="number"
+                                min={0.1}
+                                step={0.1}
+                                placeholder="Required meters"
+                                value={newUser.orderFabricMeters}
+                                onChange={(e) => setNewUser((prev) => ({ ...prev, orderFabricMeters: e.target.value }))}
+                              />
+                              {selectedNewUserFabric ? (
+                                <div className="rounded-md border p-2 space-y-2">
+                                  <p className="text-xs text-muted-foreground">
+                                    Price: Rs. {selectedNewUserFabric.sellRatePerMeter}/meter, Stock: {selectedNewUserFabric.stockMeters.toFixed(2)}m
+                                  </p>
+                                  {selectedNewUserFabric.image ? (
+                                    <img
+                                      src={selectedNewUserFabric.image}
+                                      alt={selectedNewUserFabric.name}
+                                      className="h-28 w-full rounded border object-cover"
+                                    />
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  {loadingFabrics ? "Loading fabrics..." : "Select fabric to preview image and rate."}
+                                </p>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
                   </>
                 )}
               </div>
@@ -1213,6 +1519,119 @@ export default function UsersPage() {
               value={measurementForm.notes}
               onChange={(e) => setMeasurementForm((prev) => ({ ...prev, notes: e.target.value }))}
             />
+            <div className="space-y-3 rounded-md border p-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={measurementForm.createOrder}
+                  onChange={(e) =>
+                    setMeasurementForm((prev) => ({
+                      ...prev,
+                      createOrder: e.target.checked,
+                    }))
+                  }
+                />
+                Book order now with this measurement
+              </label>
+              {measurementForm.createOrder ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="Quantity"
+                      value={measurementForm.quantity}
+                      onChange={(e) => setMeasurementForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                    />
+                    <select
+                      className="h-10 rounded-md border bg-background px-3"
+                      value={measurementForm.fabricMode}
+                      onChange={(e) =>
+                        setMeasurementForm((prev) => ({
+                          ...prev,
+                          fabricMode: e.target.value as "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC",
+                          fabricOptionId: "",
+                          fabricMeters: "1",
+                          ownFabricImage: "",
+                        }))
+                      }
+                    >
+                      <option value="WITHOUT_FABRIC">Without Fabric</option>
+                      <option value="WITH_OWN_FABRIC">With Own Fabric</option>
+                      <option value="WITH_SHOP_FABRIC">With Fabric From Us</option>
+                    </select>
+                  </div>
+
+                  {measurementForm.fabricMode !== "WITH_SHOP_FABRIC" ? (
+                    <select
+                      className="h-10 rounded-md border bg-background px-3"
+                      value={measurementForm.clothType}
+                      onChange={(e) => setMeasurementForm((prev) => ({ ...prev, clothType: e.target.value }))}
+                    >
+                      <option value="">Select cloth type</option>
+                      {CLOTH_TYPE_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+
+                  {measurementForm.fabricMode === "WITH_OWN_FABRIC" ? (
+                    <Input
+                      placeholder="Own fabric image URL (optional)"
+                      value={measurementForm.ownFabricImage}
+                      onChange={(e) => setMeasurementForm((prev) => ({ ...prev, ownFabricImage: e.target.value }))}
+                    />
+                  ) : null}
+
+                  {measurementForm.fabricMode === "WITH_SHOP_FABRIC" ? (
+                    <div className="space-y-3">
+                      <select
+                        className="h-10 rounded-md border bg-background px-3"
+                        value={measurementForm.fabricOptionId}
+                        onChange={(e) => setMeasurementForm((prev) => ({ ...prev, fabricOptionId: e.target.value }))}
+                      >
+                        <option value="">Select fabric option</option>
+                        {fabricOptions
+                          .filter((item) => item.stockMeters > 0)
+                          .map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name} ({item.clothType}) - Rs. {item.sellRatePerMeter}/m - Stock {item.stockMeters.toFixed(2)}m
+                            </option>
+                          ))}
+                      </select>
+                      <Input
+                        type="number"
+                        min={0.1}
+                        step={0.1}
+                        placeholder="Required meters"
+                        value={measurementForm.fabricMeters}
+                        onChange={(e) => setMeasurementForm((prev) => ({ ...prev, fabricMeters: e.target.value }))}
+                      />
+                      {selectedMeasurementFabric ? (
+                        <div className="rounded-md border p-2 space-y-2">
+                          <p className="text-xs text-muted-foreground">
+                            Price: Rs. {selectedMeasurementFabric.sellRatePerMeter}/meter, Stock: {selectedMeasurementFabric.stockMeters.toFixed(2)}m
+                          </p>
+                          {selectedMeasurementFabric.image ? (
+                            <img
+                              src={selectedMeasurementFabric.image}
+                              alt={selectedMeasurementFabric.name}
+                              className="h-28 w-full rounded border object-cover"
+                            />
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {loadingFabrics ? "Loading fabrics..." : "Select fabric to preview image and rate."}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <SheetFooter className="px-4 pb-4">

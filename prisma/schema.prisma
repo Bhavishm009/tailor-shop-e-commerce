@@ -178,6 +178,22 @@ model StitchingService {
   @@index([isActive])
 }
 
+model FabricOption {
+  id               String   @id @default(cuid())
+  name             String
+  clothType        ClothType
+  buyRatePerMeter  Float
+  sellRatePerMeter Float
+  stockMeters      Float    @default(0)
+  image            String?
+  description      String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clothType, isActive])
+}
+
 model Address {
   id         String   @id @default(cuid())
   userId     String

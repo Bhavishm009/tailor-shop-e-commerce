@@ -130,6 +130,7 @@ export async function POST(request: Request) {
         const parsed = Number(value)
         return Number.isFinite(parsed) ? parsed : undefined
       }
+      let createdMeasurementId: string | null = null
 
       const createdUser = await tx.user.create({
         data: {
@@ -175,7 +176,7 @@ export async function POST(request: Request) {
 
       if (createdUser.role === "CUSTOMER" && body.measurement?.name?.trim()) {
         const measurementData = body.measurement.measurementData || {}
-        await tx.measurement.create({
+        const measurement = await tx.measurement.create({
           data: {
             userId: createdUser.id,
             name: body.measurement.name.trim(),
@@ -194,9 +195,13 @@ export async function POST(request: Request) {
             garmentLength: asNumber(body.measurement.garmentLength ?? measurementData.garmentLength),
           },
         })
+        createdMeasurementId = measurement.id
       }
 
-      return createdUser
+      return {
+        ...createdUser,
+        createdMeasurementId,
+      }
     })
 
     return NextResponse.json(user, { status: 201 })

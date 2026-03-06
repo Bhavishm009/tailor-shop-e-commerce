@@ -3,10 +3,28 @@ import { db } from "@/lib/db"
 import { requireRole } from "@/lib/api-auth"
 import { createOrderNotification } from "@/lib/notifications"
 import { resolveMeasurementType } from "@/lib/measurement-presets"
-import { getClothOptionById } from "@/lib/cloth-options"
-import type { ClothSource, ClothType } from "@prisma/client"
+import type { ClothType } from "@prisma/client"
 
 const CLOTH_TYPES: ClothType[] = ["COTTON", "SILK", "WOOL", "LINEN", "POLYESTER", "BLEND", "CUSTOM"]
+
+type ItemInput = {
+  serviceKey?: string
+  measurementId?: string
+  measurementName?: string
+  measurementData?: Record<string, number | string | null>
+  quantity?: number
+  fabricMode?: "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC"
+  clothType?: ClothType
+  fabricOptionId?: string
+  fabricMeters?: number
+  fabricImage?: string | null
+  notes?: string
+}
+
+function asNumber(value: unknown) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
 
 export async function GET() {
   try {
@@ -64,9 +82,10 @@ export async function POST(request: Request) {
 
     const body = (await request.json()) as {
       customerId?: string
+      items?: ItemInput[]
       serviceKey?: string
       clothType?: ClothType
-      clothSource?: ClothSource
+      clothSource?: "OWN" | "FROM_US"
       clothOptionId?: string
       notes?: string
       fabricImage?: string | null
@@ -82,20 +101,8 @@ export async function POST(request: Request) {
       addressCountry?: string
     }
 
-    if (!body.customerId || !body.serviceKey || !body.clothType) {
-      return NextResponse.json({ error: "customerId, serviceKey and clothType are required" }, { status: 400 })
-    }
-
-    if (!CLOTH_TYPES.includes(body.clothType)) {
-      return NextResponse.json({ error: "Invalid cloth type" }, { status: 400 })
-    }
-    const clothSource = body.clothSource === "FROM_US" ? "FROM_US" : "OWN"
-    const clothOption = body.clothOptionId ? getClothOptionById(body.clothOptionId) : null
-    if (clothSource === "FROM_US" && !clothOption) {
-      return NextResponse.json({ error: "Please select cloth from our options." }, { status: 400 })
-    }
-    if (clothSource === "FROM_US" && clothOption && clothOption.clothType !== body.clothType) {
-      return NextResponse.json({ error: "Selected cloth type does not match cloth option." }, { status: 400 })
+    if (!body.customerId) {
+      return NextResponse.json({ error: "customerId is required" }, { status: 400 })
     }
 
     const customer = await db.user.findFirst({
@@ -106,95 +113,168 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 })
     }
 
-    const service = await db.stitchingService.findFirst({
-      where: { key: body.serviceKey, isActive: true },
-    })
-    if (!service) {
-      return NextResponse.json({ error: "Invalid stitching service" }, { status: 400 })
-    }
-
-    const measurementType = service.measurementType || resolveMeasurementType(service.key, service.name)
-    const asNumber = (value: unknown) => {
-      const parsed = Number(value)
-      return Number.isFinite(parsed) ? parsed : undefined
-    }
-
-    let measurementId = body.measurementId
-    if (measurementId) {
-      const existing = await db.measurement.findFirst({
-        where: {
-          id: measurementId,
-          userId: customer.id,
-        },
-      })
-      if (!existing) {
-        return NextResponse.json({ error: "Invalid measurement for selected customer" }, { status: 400 })
-      }
-    } else {
-      if (!body.measurementData || Object.keys(body.measurementData).length === 0) {
-        return NextResponse.json({ error: "Measurement details are required" }, { status: 400 })
-      }
-
-      const createdMeasurement = await db.measurement.create({
-        data: {
-          userId: customer.id,
-          name: body.measurementName?.trim() || `${service.name} measurements`,
-          notes: body.notes || null,
-          measurementType,
-          measurementData: body.measurementData,
-          chest: asNumber(body.measurementData.chest),
-          waist: asNumber(body.measurementData.waist),
-          hip: asNumber(body.measurementData.hip),
-          shoulder: asNumber(body.measurementData.shoulder),
-          sleeveLength: asNumber(body.measurementData.sleeveLength),
-          garmentLength: asNumber(body.measurementData.garmentLength),
-        },
-      })
-      measurementId = createdMeasurement.id
-    }
-
     const fallbackAddress = await db.address.findFirst({
       where: { userId: customer.id },
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     })
 
-    const stitchingPrice = service.customerPrice
-    const clothPrice = clothSource === "FROM_US" ? clothOption?.price || 0 : 0
-    const totalPrice = stitchingPrice + clothPrice
+    const normalizedItems: ItemInput[] =
+      Array.isArray(body.items) && body.items.length > 0
+        ? body.items
+        : [
+            {
+              serviceKey: body.serviceKey,
+              measurementId: body.measurementId,
+              measurementName: body.measurementName,
+              measurementData: body.measurementData,
+              quantity: 1,
+              fabricMode: body.clothSource === "FROM_US" ? "WITH_SHOP_FABRIC" : "WITH_OWN_FABRIC",
+              clothType: body.clothType,
+              fabricOptionId: body.clothOptionId,
+              fabricImage: body.fabricImage,
+              notes: body.notes,
+            },
+          ]
 
-    const customOrder = await db.stitchingOrder.create({
-      data: {
-        customerId: customer.id,
-        measurementId: measurementId!,
-        clothType: body.clothType,
-        clothSource,
-        clothName: clothSource === "FROM_US" ? clothOption?.name || null : null,
-        clothPrice,
-        stitchingPrice,
-        fabricImage: body.fabricImage || null,
-        serviceKey: service.key,
-        stitchingService: service.name,
-        price: totalPrice,
-        notes: body.notes || null,
-        contactName: body.contactName || customer.name,
-        contactPhone: body.contactPhone || null,
-        addressLine1: body.addressLine1 || fallbackAddress?.street || null,
-        addressCity: body.addressCity || fallbackAddress?.city || null,
-        addressState: body.addressState || fallbackAddress?.state || null,
-        addressPostalCode: body.addressPostalCode || fallbackAddress?.postalCode || null,
-        addressCountry: body.addressCountry || fallbackAddress?.country || null,
-      },
-    })
+    if (normalizedItems.length === 0) {
+      return NextResponse.json({ error: "At least one item is required." }, { status: 400 })
+    }
+
+    const createdOrders = []
+
+    for (const item of normalizedItems) {
+      if (!item.serviceKey) {
+        return NextResponse.json({ error: "serviceKey is required for every item." }, { status: 400 })
+      }
+
+      const service = await db.stitchingService.findFirst({
+        where: { key: item.serviceKey, isActive: true },
+      })
+      if (!service) {
+        return NextResponse.json({ error: "Invalid stitching service" }, { status: 400 })
+      }
+
+      const measurementType = service.measurementType || resolveMeasurementType(service.key, service.name)
+
+      let measurementId = item.measurementId
+      if (measurementId) {
+        const existing = await db.measurement.findFirst({
+          where: {
+            id: measurementId,
+            userId: customer.id,
+          },
+        })
+        if (!existing) {
+          return NextResponse.json({ error: "Invalid measurement for selected customer" }, { status: 400 })
+        }
+      } else {
+        if (!item.measurementData || Object.keys(item.measurementData).length === 0) {
+          return NextResponse.json({ error: "Measurement details are required" }, { status: 400 })
+        }
+
+        const createdMeasurement = await db.measurement.create({
+          data: {
+            userId: customer.id,
+            name: item.measurementName?.trim() || `${service.name} measurements`,
+            notes: item.notes || null,
+            measurementType,
+            measurementData: item.measurementData,
+            chest: asNumber(item.measurementData.chest),
+            waist: asNumber(item.measurementData.waist),
+            hip: asNumber(item.measurementData.hip),
+            shoulder: asNumber(item.measurementData.shoulder),
+            sleeveLength: asNumber(item.measurementData.sleeveLength),
+            garmentLength: asNumber(item.measurementData.garmentLength),
+          },
+        })
+        measurementId = createdMeasurement.id
+      }
+
+      const mode = item.fabricMode || "WITHOUT_FABRIC"
+      const quantity = Number.isFinite(Number(item.quantity)) && Number(item.quantity) > 0 ? Math.floor(Number(item.quantity)) : 1
+
+      let clothType: ClothType = item.clothType && CLOTH_TYPES.includes(item.clothType) ? item.clothType : "CUSTOM"
+      let clothName: string | null = null
+      let clothPrice = 0
+      let clothSource: "OWN" | "FROM_US" = "OWN"
+      let fabricImage: string | null = item.fabricImage || null
+
+      if (mode === "WITH_SHOP_FABRIC") {
+        if (!item.fabricOptionId) {
+          return NextResponse.json({ error: "Fabric option is required for with-fabric items." }, { status: 400 })
+        }
+        const fabric = await db.fabricOption.findFirst({
+          where: { id: item.fabricOptionId, isActive: true },
+        })
+        if (!fabric) {
+          return NextResponse.json({ error: "Invalid fabric option selected." }, { status: 400 })
+        }
+        const meters = Number(item.fabricMeters)
+        if (!Number.isFinite(meters) || meters <= 0) {
+          return NextResponse.json({ error: "Valid fabric meters are required." }, { status: 400 })
+        }
+        const requiredMeters = meters * quantity
+        const stockUpdated = await db.fabricOption.updateMany({
+          where: { id: fabric.id, stockMeters: { gte: requiredMeters } },
+          data: { stockMeters: { decrement: requiredMeters } },
+        })
+        if (stockUpdated.count === 0) {
+          return NextResponse.json(
+            { error: `Insufficient stock for ${fabric.name}. Required ${requiredMeters.toFixed(2)}m.` },
+            { status: 400 },
+          )
+        }
+        clothType = fabric.clothType
+        clothName = fabric.name
+        clothPrice = fabric.sellRatePerMeter * meters
+        clothSource = "FROM_US"
+        fabricImage = fabric.image || null
+      } else if (mode === "WITH_OWN_FABRIC") {
+        if (!CLOTH_TYPES.includes(clothType)) {
+          return NextResponse.json({ error: "Cloth type is required for own-fabric items." }, { status: 400 })
+        }
+      } else {
+        if (!CLOTH_TYPES.includes(clothType)) clothType = "CUSTOM"
+        fabricImage = null
+      }
+
+      for (let index = 0; index < quantity; index += 1) {
+        const customOrder = await db.stitchingOrder.create({
+          data: {
+            customerId: customer.id,
+            measurementId: measurementId!,
+            clothType,
+            clothSource,
+            clothName,
+            clothPrice,
+            stitchingPrice: service.customerPrice,
+            fabricImage,
+            serviceKey: service.key,
+            stitchingService: service.name,
+            price: service.customerPrice + clothPrice,
+            notes: item.notes || null,
+            contactName: body.contactName || customer.name,
+            contactPhone: body.contactPhone || null,
+            addressLine1: body.addressLine1 || fallbackAddress?.street || null,
+            addressCity: body.addressCity || fallbackAddress?.city || null,
+            addressState: body.addressState || fallbackAddress?.state || null,
+            addressPostalCode: body.addressPostalCode || fallbackAddress?.postalCode || null,
+            addressCountry: body.addressCountry || fallbackAddress?.country || null,
+          },
+        })
+        createdOrders.push(customOrder)
+      }
+    }
 
     await createOrderNotification({
       userId: customer.id,
       title: "Custom order booked",
-      message: `Admin booked a custom order (${service.name}) for you.`,
+      message: `Admin booked ${createdOrders.length} custom order item(s) for you.`,
       type: "CUSTOM_ORDER_CREATED",
       link: "/customer/orders",
     })
 
-    return NextResponse.json(customOrder, { status: 201 })
+    return NextResponse.json({ count: createdOrders.length, orders: createdOrders }, { status: 201 })
   } catch (error) {
     console.error("[admin/custom-orders/create]", error)
     return NextResponse.json({ error: "Failed to create custom order" }, { status: 500 })

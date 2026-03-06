@@ -2,20 +2,54 @@
 
 import type React from "react"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { ChevronLeft, Plus, Upload, X } from "lucide-react"
+import type { ClothType } from "@prisma/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Progress } from "@/components/ui/progress"
-import Link from "next/link"
-import { ChevronLeft, Upload } from "lucide-react"
-import { uploadFile, isValidImageFile } from "@/lib/file-upload"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { FeedbackToasts } from "@/components/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
-import type { ClothType } from "@prisma/client"
+import { uploadFile, isValidImageFile } from "@/lib/file-upload"
+
+type MeasurementOption = { id: string; name: string; isVerified?: boolean }
+type ServiceOption = { id: string; key: string; name: string; category: string; customerPrice: number }
+type FabricOption = {
+  id: string
+  name: string
+  clothType: ClothType
+  buyRatePerMeter: number
+  sellRatePerMeter: number
+  stockMeters: number
+  image?: string | null
+  description?: string | null
+}
+type Address = {
+  street: string
+  city: string
+  state: string
+  postalCode: string
+  country: string
+  isDefault: boolean
+}
+
+type OrderItemForm = {
+  clientId: string
+  serviceKey: string
+  measurementId: string
+  quantity: number
+  fabricMode: "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC"
+  clothType: string
+  fabricOptionId: string
+  fabricMeters: string
+  fabricImageUrl: string
+  notes: string
+}
 
 const clothTypes = [
   { value: "COTTON", label: "Cotton" },
@@ -30,76 +64,124 @@ const clothTypes = [
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value)
 
-export default function CustomStitchingPage() {
-  const router = useRouter()
-  const [step, setStep] = useState(1)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-  const [uploadingFabric, setUploadingFabric] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [measurementOptions, setMeasurementOptions] = useState<Array<{ id: string; name: string; isVerified?: boolean }>>([])
-  const [serviceOptions, setServiceOptions] = useState<
-    Array<{ id: string; key: string; name: string; category: string; customerPrice: number; tailorRate: number }>
-  >([])
-  const [clothOptions, setClothOptions] = useState<
-    Array<{ id: string; name: string; clothType: ClothType; price: number; description?: string }>
-  >([])
+function makeClientId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID()
+  }
+  return `item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
 
-  const [formData, setFormData] = useState({
-    clothSource: "OWN" as "OWN" | "FROM_US",
-    clothType: "",
-    clothOptionId: "",
-    fabricImageUrl: "",
+function createItem(): OrderItemForm {
+  return {
+    clientId: makeClientId(),
     serviceKey: "",
     measurementId: "",
+    quantity: 1,
+    fabricMode: "WITHOUT_FABRIC",
+    clothType: "",
+    fabricOptionId: "",
+    fabricMeters: "1",
+    fabricImageUrl: "",
     notes: "",
-  })
+  }
+}
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+export default function CustomStitchingPage() {
+  const router = useRouter()
+  const [submitting, setSubmitting] = useState(false)
+  const [loadingMeta, setLoadingMeta] = useState(true)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+
+  const [measurementOptions, setMeasurementOptions] = useState<MeasurementOption[]>([])
+  const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([])
+  const [fabricOptions, setFabricOptions] = useState<FabricOption[]>([])
+
+  const [items, setItems] = useState<OrderItemForm[]>([createItem()])
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+
+  const [contactName, setContactName] = useState("")
+  const [contactPhone, setContactPhone] = useState("")
+  const [addressLine1, setAddressLine1] = useState("")
+  const [addressCity, setAddressCity] = useState("")
+  const [addressState, setAddressState] = useState("")
+  const [addressPostalCode, setAddressPostalCode] = useState("")
+  const [addressCountry, setAddressCountry] = useState("India")
+
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
     const loadMeta = async () => {
-      const [measurementResponse, serviceResponse] = await Promise.all([
-        fetch("/api/measurements", { cache: "no-store" }),
-        fetch("/api/stitching-services", { cache: "no-store" }),
-      ])
-      const clothResponse = await fetch("/api/cloth-options", { cache: "no-store" })
-      if (measurementResponse.ok) {
-        const measurementData = (await measurementResponse.json()) as Array<{ id: string; name: string; isVerified?: boolean }>
-        setMeasurementOptions(measurementData)
-      }
-      if (serviceResponse.ok) {
-        const serviceData = (await serviceResponse.json()) as Array<{
-          id: string
-          key: string
-          name: string
-          category: string
-          customerPrice: number
-          tailorRate: number
-        }>
-        setServiceOptions(serviceData)
-      }
-      if (clothResponse.ok) {
-        const clothData = (await clothResponse.json()) as Array<{
-          id: string
-          name: string
-          clothType: ClothType
-          price: number
-          description?: string
-        }>
-        setClothOptions(clothData)
+      try {
+        const [measurementResponse, serviceResponse, fabricResponse, addressResponse] = await Promise.all([
+          fetch("/api/measurements", { cache: "no-store" }),
+          fetch("/api/stitching-services", { cache: "no-store" }),
+          fetch("/api/cloth-options", { cache: "no-store" }),
+          fetch("/api/account/addresses", { cache: "no-store" }),
+        ])
+
+        if (measurementResponse.ok) {
+          const data = (await measurementResponse.json()) as MeasurementOption[]
+          setMeasurementOptions(data)
+        }
+        if (serviceResponse.ok) {
+          const data = (await serviceResponse.json()) as ServiceOption[]
+          setServiceOptions(data)
+        }
+        if (fabricResponse.ok) {
+          const data = (await fabricResponse.json()) as FabricOption[]
+          setFabricOptions(data)
+        }
+        if (addressResponse.ok) {
+          const data = (await addressResponse.json()) as Address[]
+          const primary = data.find((addr) => addr.isDefault) || data[0]
+          if (primary) {
+            setAddressLine1(primary.street || "")
+            setAddressCity(primary.city || "")
+            setAddressState(primary.state || "")
+            setAddressPostalCode(primary.postalCode || "")
+            setAddressCountry(primary.country || "India")
+          }
+        }
+      } finally {
+        setLoadingMeta(false)
       }
     }
-    loadMeta()
+
+    void loadMeta()
   }, [])
 
-  const selectedService = serviceOptions.find((service) => service.key === formData.serviceKey)
-  const selectedClothOption = clothOptions.find((item) => item.id === formData.clothOptionId)
-  const clothCharge = formData.clothSource === "FROM_US" ? selectedClothOption?.price || 0 : 0
-  const estimatedTotal = (selectedService?.customerPrice || 0) + clothCharge
+  const updateItem = (clientId: string, next: Partial<OrderItemForm>) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.clientId !== clientId) return item
+        const merged = { ...item, ...next }
+        if (next.fabricMode === "WITHOUT_FABRIC") {
+          merged.fabricOptionId = ""
+          merged.fabricMeters = "1"
+          merged.fabricImageUrl = ""
+        }
+        if (next.fabricMode === "WITH_OWN_FABRIC") {
+          merged.fabricOptionId = ""
+          merged.fabricMeters = "1"
+        }
+        if (next.fabricMode === "WITH_SHOP_FABRIC") {
+          merged.fabricImageUrl = ""
+        }
+        if (next.fabricOptionId) {
+          const option = fabricOptions.find((fabric) => fabric.id === next.fabricOptionId)
+          if (option) merged.clothType = option.clothType
+        }
+        return merged
+      }),
+    )
+  }
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const addItem = () => setItems((prev) => [...prev, createItem()])
+  const removeItem = (clientId: string) => setItems((prev) => (prev.length > 1 ? prev.filter((item) => item.clientId !== clientId) : prev))
+
+  const handleFileChange = async (clientId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ""
     if (!file) return
@@ -110,34 +192,92 @@ export default function CustomStitchingPage() {
       return
     }
 
-    setUploadingFabric(true)
+    setUploadingItemId(clientId)
     setUploadProgress(0)
     try {
       const uploaded = await uploadFile(file, "/tailorhub/custom-orders/fabric", setUploadProgress)
-      setFormData((prev) => ({ ...prev, fabricImageUrl: uploaded.url }))
+      updateItem(clientId, { fabricImageUrl: uploaded.url })
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Failed to upload fabric image.")
     } finally {
-      setUploadingFabric(false)
+      setUploadingItemId(null)
     }
   }
 
-  const handleChange = (value: string, field: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+  const lines = useMemo(() => {
+    return items.map((item) => {
+      const service = serviceOptions.find((serviceItem) => serviceItem.key === item.serviceKey)
+      const qty = Math.max(1, item.quantity || 1)
+      const stitchingUnit = service?.customerPrice || 0
+
+      const selectedFabric = item.fabricMode === "WITH_SHOP_FABRIC" ? fabricOptions.find((fabric) => fabric.id === item.fabricOptionId) : null
+      const meters = Number(item.fabricMeters)
+      const safeMeters = Number.isFinite(meters) && meters > 0 ? meters : 0
+      const fabricUnit = selectedFabric ? selectedFabric.sellRatePerMeter * safeMeters : 0
+
+      return {
+        clientId: item.clientId,
+        serviceName: service?.name || "-",
+        quantity: qty,
+        stitchingUnit,
+        fabricUnit,
+        lineTotal: (stitchingUnit + fabricUnit) * qty,
+        selectedFabric,
+      }
+    })
+  }, [items, serviceOptions, fabricOptions])
+
+  const estimatedTotal = lines.reduce((sum, line) => sum + line.lineTotal, 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setSuccess("")
 
-    if (!formData.measurementId || !formData.serviceKey || !formData.clothType) {
-      setError("Please complete all required fields.")
+    if (items.length === 0) {
+      setError("Add at least one stitching item.")
       return
     }
-    if (formData.clothSource === "FROM_US" && !formData.clothOptionId) {
-      setError("Please select cloth from our options.")
-      return
+
+    for (const item of items) {
+      if (!item.serviceKey || !item.measurementId) {
+        setError("Select stitching service and measurement for every item.")
+        return
+      }
+      if (item.fabricMode !== "WITH_SHOP_FABRIC" && !item.clothType) {
+        setError("Select cloth type for each item when fabric is not selected from us.")
+        return
+      }
+      if (item.fabricMode === "WITH_SHOP_FABRIC") {
+        if (!item.fabricOptionId) {
+          setError("Select fabric for each item marked as with fabric.")
+          return
+        }
+        const meters = Number(item.fabricMeters)
+        if (!Number.isFinite(meters) || meters <= 0) {
+          setError("Enter valid required meters for all selected fabrics.")
+          return
+        }
+        const selectedFabric = fabricOptions.find((fabric) => fabric.id === item.fabricOptionId)
+        if (!selectedFabric) {
+          setError("Selected fabric is invalid.")
+          return
+        }
+        const required = meters * Math.max(1, item.quantity || 1)
+        if (required > selectedFabric.stockMeters) {
+          setError(`Not enough stock for ${selectedFabric.name}. Required ${required.toFixed(2)}m.`)
+          return
+        }
+      }
+    }
+
+    const hasAnyAddressInput = [addressLine1, addressCity, addressState, addressPostalCode, addressCountry]
+      .some((value) => value.trim().length > 0)
+    if (hasAnyAddressInput) {
+      if (!addressLine1.trim() || !addressCity.trim() || !addressState.trim() || !addressPostalCode.trim() || !addressCountry.trim()) {
+        setError("Complete all address fields or leave all blank.")
+        return
+      }
     }
 
     setSubmitting(true)
@@ -146,21 +286,29 @@ export default function CustomStitchingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clothType: formData.clothType,
-          clothSource: formData.clothSource,
-          clothOptionId: formData.clothOptionId || undefined,
-          fabricImage: formData.fabricImageUrl || null,
-          serviceKey: formData.serviceKey,
-          measurementId: formData.measurementId,
-          notes: formData.notes,
+          contactName: contactName.trim() || undefined,
+          contactPhone: contactPhone.trim() || undefined,
+          addressLine1: addressLine1.trim() || undefined,
+          addressCity: addressCity.trim() || undefined,
+          addressState: addressState.trim() || undefined,
+          addressPostalCode: addressPostalCode.trim() || undefined,
+          addressCountry: addressCountry.trim() || undefined,
+          items: items.map((item) => ({
+            serviceKey: item.serviceKey,
+            measurementId: item.measurementId,
+            quantity: Math.max(1, item.quantity || 1),
+            fabricMode: item.fabricMode,
+            clothType: item.clothType || undefined,
+            fabricOptionId: item.fabricOptionId || undefined,
+            fabricMeters: item.fabricMode === "WITH_SHOP_FABRIC" ? Number(item.fabricMeters) : undefined,
+            fabricImage: item.fabricMode === "WITH_OWN_FABRIC" ? item.fabricImageUrl || null : null,
+            notes: item.notes || undefined,
+          })),
         }),
       })
 
       if (!response.ok) {
-        const data = (await response.json().catch(() => ({ error: "Failed to create custom order." }))) as {
-          error?: string
-          url?: string
-        }
+        const data = (await response.json().catch(() => ({ error: "Failed to create custom order." }))) as { error?: string; url?: string }
         if (data.url?.includes("/api/auth/error")) {
           setError("Your session expired. Please login again and place the order.")
           return
@@ -177,224 +325,322 @@ export default function CustomStitchingPage() {
     }
   }
 
+  if (loadingMeta) {
+    return (
+      <div className="p-4 md:p-8">
+        <Card className="p-6 text-muted-foreground">Loading order form...</Card>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 md:p-8">
-      <div className="max-w-2xl">
-        <Button variant="ghost" asChild className="mb-6">
+      <div className="max-w-5xl space-y-6">
+        <Button variant="ghost" asChild>
           <Link href="/customer/orders">
-            <ChevronLeft className="w-4 h-4 mr-2" />
+            <ChevronLeft className="mr-2 h-4 w-4" />
             Back to Orders
           </Link>
         </Button>
 
-        <h1 className="text-2xl md:text-3xl font-bold mb-2">Create Custom Stitching Order</h1>
-        <p className="text-muted-foreground mb-6 md:mb-8">Fill in your details and upload your fabric</p>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">Create Custom Stitching Order</h1>
+          <p className="text-muted-foreground">Add one or multiple garments with optional fabric selection from shop.</p>
+        </div>
 
         <FeedbackToasts error={error} success={success} />
 
-        <div className="flex gap-2 mb-8">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className={`h-2 flex-1 rounded ${s <= step ? "bg-primary" : "bg-muted"}`} />
-          ))}
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Card className="p-5 md:p-6 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg md:text-xl font-semibold">Stitching Items</h2>
+              <Button type="button" variant="outline" onClick={addItem}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Item
+              </Button>
+            </div>
 
-        <form onSubmit={handleSubmit}>
-          {step === 1 && (
-            <Card className="p-5 md:p-8">
-              <h2 className="text-xl font-bold mb-6">Select Fabric Type</h2>
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-3">Cloth Source</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, clothSource: "OWN", clothOptionId: "" }))
-                      }
-                      className={`rounded-lg border p-3 text-left ${formData.clothSource === "OWN" ? "border-primary bg-primary/5" : ""}`}
-                    >
-                      <p className="font-medium">I have my own cloth</p>
-                      <p className="text-xs text-muted-foreground">No cloth charge</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, clothSource: "FROM_US" }))}
-                      className={`rounded-lg border p-3 text-left ${formData.clothSource === "FROM_US" ? "border-primary bg-primary/5" : ""}`}
-                    >
-                      <p className="font-medium">Choose cloth from us</p>
-                      <p className="text-xs text-muted-foreground">Cloth charge will be added</p>
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-3">Cloth Type</label>
-                  <Select value={formData.clothType} onValueChange={(value) => handleChange(value, "clothType")}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a cloth type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clothTypes.map((cloth) => (
-                        <SelectItem key={cloth.value} value={cloth.value}>
-                          {cloth.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="space-y-4">
+              {items.map((item, index) => {
+                const selectedService = serviceOptions.find((service) => service.key === item.serviceKey)
+                const filteredFabricOptions = fabricOptions.filter(
+                  (fabric) => (!item.clothType || fabric.clothType === item.clothType) && fabric.stockMeters > 0,
+                )
+                const selectedFabric = fabricOptions.find((fabric) => fabric.id === item.fabricOptionId)
 
-                {formData.clothSource === "FROM_US" ? (
-                  <div>
-                    <label className="block text-sm font-medium mb-3">Choose Cloth Option</label>
-                    <Select
-                      value={formData.clothOptionId}
-                      onValueChange={(value) => {
-                        const option = clothOptions.find((item) => item.id === value)
-                        setFormData((prev) => ({
-                          ...prev,
-                          clothOptionId: value,
-                          clothType: option?.clothType || prev.clothType,
-                        }))
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select cloth option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clothOptions.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.name} ({item.clothType}) - Rs. {formatCurrency(item.price)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {selectedClothOption?.description ? (
-                      <p className="mt-2 text-xs text-muted-foreground">{selectedClothOption.description}</p>
-                    ) : null}
-                  </div>
-                ) : null}
+                return (
+                  <div key={item.clientId} className="rounded-md border p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">Item #{index + 1}</p>
+                      <Button type="button" variant="ghost" size="icon" disabled={items.length <= 1} onClick={() => removeItem(item.clientId)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
 
-                {formData.clothSource === "OWN" ? (
-                  <div>
-                  <label className="block text-sm font-medium mb-3">Upload Fabric Image</label>
-                  <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                    <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                    <Input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                      id="fabric-image"
-                    />
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
-                      <p className="font-medium">Click to upload or drag and drop</p>
-                      <p className="text-sm text-muted-foreground">PNG, JPG up to 10MB</p>
-                    </button>
-                    {uploadingFabric ? (
-                      <div className="mt-3 space-y-1">
-                        <p className="text-xs text-muted-foreground">Uploading: {uploadProgress}%</p>
-                        <Progress value={uploadProgress} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Stitching Service</label>
+                        <Select value={item.serviceKey} onValueChange={(value) => updateItem(item.clientId, { serviceKey: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select service" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {serviceOptions.map((service) => (
+                              <SelectItem key={service.key} value={service.key}>
+                                {service.name} - Rs. {formatCurrency(service.customerPrice)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Measurement Profile</label>
+                        <Select value={item.measurementId} onValueChange={(value) => updateItem(item.clientId, { measurementId: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select saved measurement" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {measurementOptions.map((measurement) => (
+                              <SelectItem key={measurement.id} value={measurement.id}>
+                                {measurement.name} {measurement.isVerified ? "- Verified" : "- Suggested"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label htmlFor={`qty-${item.clientId}`} className="text-sm font-medium">Quantity</label>
+                        <Input
+                          id={`qty-${item.clientId}`}
+                          type="number"
+                          min={1}
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const qty = Number(e.target.value)
+                            updateItem(item.clientId, { quantity: Number.isFinite(qty) && qty > 0 ? qty : 1 })
+                          }}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Fabric Option</label>
+                        <Select value={item.fabricMode} onValueChange={(value) => updateItem(item.clientId, { fabricMode: value as OrderItemForm["fabricMode"] })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select fabric mode" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="WITHOUT_FABRIC">Without fabric (stitching only)</SelectItem>
+                            <SelectItem value="WITH_OWN_FABRIC">With own fabric</SelectItem>
+                            <SelectItem value="WITH_SHOP_FABRIC">With fabric from us</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Cloth Type</label>
+                      <Select
+                        value={item.clothType}
+                        onValueChange={(value) => updateItem(item.clientId, { clothType: value, fabricOptionId: "" })}
+                        disabled={item.fabricMode === "WITH_SHOP_FABRIC"}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={item.fabricMode === "WITH_SHOP_FABRIC" ? "Auto from selected fabric" : "Select cloth type"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clothTypes.map((clothType) => (
+                            <SelectItem key={clothType.value} value={clothType.value}>
+                              {clothType.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {item.fabricMode === "WITH_SHOP_FABRIC" ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Select Fabric</label>
+                          <Select value={item.fabricOptionId} onValueChange={(value) => updateItem(item.clientId, { fabricOptionId: value })}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select fabric" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {filteredFabricOptions.map((fabric) => (
+                                <SelectItem key={fabric.id} value={fabric.id}>
+                                  {fabric.name} ({fabric.clothType}) - Rs. {formatCurrency(fabric.sellRatePerMeter)}/meter - Stock {fabric.stockMeters.toFixed(2)}m
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {selectedFabric?.description ? (
+                            <p className="text-xs text-muted-foreground">{selectedFabric.description}</p>
+                          ) : null}
+                          {selectedFabric ? (
+                            <p className="text-xs text-muted-foreground">
+                              Available stock: {selectedFabric.stockMeters.toFixed(2)}m
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="space-y-2">
+                          <label htmlFor={`meters-${item.clientId}`} className="text-sm font-medium">Required Meters</label>
+                          <Input
+                            id={`meters-${item.clientId}`}
+                            type="number"
+                            min={0.1}
+                            step={0.1}
+                            value={item.fabricMeters}
+                            onChange={(e) => updateItem(item.clientId, { fabricMeters: e.target.value })}
+                          />
+                        </div>
+                        {selectedFabric?.image ? (
+                          <div className="md:col-span-2">
+                            <p className="text-sm font-medium mb-2">Selected Fabric Preview</p>
+                            <img src={selectedFabric.image} alt={selectedFabric.name} className="h-36 w-full rounded-md border object-cover" />
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
-                    {formData.fabricImageUrl ? <p className="text-sm text-green-600 mt-2">Fabric image uploaded</p> : null}
-                  </div>
-                </div>
-                ) : null}
-              </div>
 
-              <Button type="button" onClick={() => setStep(2)} disabled={!formData.clothType}>
-                Continue
-              </Button>
-            </Card>
-          )}
+                    {item.fabricMode === "WITH_OWN_FABRIC" ? (
+                      <div className="space-y-2 rounded-md border p-3">
+                        <label className="text-sm font-medium">Upload Own Fabric Image (Optional)</label>
+                        <input
+                          ref={(node) => {
+                            fileInputRefs.current[item.clientId] = node
+                          }}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => void handleFileChange(item.clientId, e)}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => fileInputRefs.current[item.clientId]?.click()}
+                          disabled={uploadingItemId === item.clientId}
+                        >
+                          {uploadingItemId === item.clientId ? (
+                            <>
+                              <Spinner className="mr-2" />Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="mr-2 h-4 w-4" />Upload Fabric Image
+                            </>
+                          )}
+                        </Button>
+                        {uploadingItemId === item.clientId ? (
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">Uploading: {uploadProgress}%</p>
+                            <Progress value={uploadProgress} />
+                          </div>
+                        ) : null}
+                        {item.fabricImageUrl ? (
+                          <img src={item.fabricImageUrl} alt="Uploaded fabric" className="h-32 w-full rounded border object-cover" />
+                        ) : null}
+                      </div>
+                    ) : null}
 
-          {step === 2 && (
-            <Card className="p-5 md:p-8">
-              <h2 className="text-xl font-bold mb-6">Select Stitching Service</h2>
-              <RadioGroup
-                value={formData.serviceKey}
-                onValueChange={(value) => handleChange(value, "serviceKey")}
-              >
-                <div className="space-y-3 mb-6">
-                  {serviceOptions.map((service) => (
-                    <div
-                      key={service.key}
-                      className="flex items-center border rounded-lg p-4 cursor-pointer hover:bg-secondary"
-                    >
-                      <RadioGroupItem value={service.key} id={service.key} />
-                      <label htmlFor={service.key} className="flex-1 ml-3 cursor-pointer">
-                        <p className="font-medium">{service.name}</p>
-                        <p className="text-xs text-muted-foreground">{service.category}</p>
-                        <p className="text-sm text-muted-foreground">Price: Rs. {formatCurrency(service.customerPrice)}</p>
-                      </label>
+                    <div className="space-y-2">
+                      <label htmlFor={`notes-${item.clientId}`} className="text-sm font-medium">Item Notes</label>
+                      <Textarea
+                        id={`notes-${item.clientId}`}
+                        value={item.notes}
+                        onChange={(e) => updateItem(item.clientId, { notes: e.target.value })}
+                        placeholder="Any special instructions for this item"
+                        rows={2}
+                      />
                     </div>
+
+                    {selectedService ? (
+                      <p className="text-xs text-muted-foreground">Base stitching: Rs. {formatCurrency(selectedService.customerPrice)} per piece</p>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+
+          <Card className="p-5 md:p-6 space-y-4">
+            <h2 className="text-lg md:text-xl font-semibold">Contact and Delivery Address</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label htmlFor="contact-name" className="text-sm font-medium">Contact Name</label>
+                <Input id="contact-name" value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Receiver full name" />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="contact-phone" className="text-sm font-medium">Phone Number</label>
+                <Input id="contact-phone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="10-digit mobile number" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label htmlFor="address-line1" className="text-sm font-medium">Address Line</label>
+                <Input id="address-line1" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} placeholder="House no, street, area" />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="address-city" className="text-sm font-medium">City</label>
+                <Input id="address-city" value={addressCity} onChange={(e) => setAddressCity(e.target.value)} placeholder="City" />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="address-state" className="text-sm font-medium">State</label>
+                <Input id="address-state" value={addressState} onChange={(e) => setAddressState(e.target.value)} placeholder="State" />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="address-postal" className="text-sm font-medium">Pincode</label>
+                <Input id="address-postal" value={addressPostalCode} onChange={(e) => setAddressPostalCode(e.target.value.replace(/\D+/g, "").slice(0, 6))} placeholder="Pincode" />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="address-country" className="text-sm font-medium">Country</label>
+                <Input id="address-country" value={addressCountry} onChange={(e) => setAddressCountry(e.target.value)} placeholder="Country" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-5 md:p-6 space-y-4">
+            <h2 className="text-lg md:text-xl font-semibold">Bill Summary</h2>
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Item</th>
+                    <th className="px-3 py-2 text-right">Stitching</th>
+                    <th className="px-3 py-2 text-right">Fabric</th>
+                    <th className="px-3 py-2 text-right">Qty</th>
+                    <th className="px-3 py-2 text-right">Line Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line, idx) => (
+                    <tr key={line.clientId} className="border-t">
+                      <td className="px-3 py-2">{idx + 1}. {line.serviceName}</td>
+                      <td className="px-3 py-2 text-right">Rs. {formatCurrency(line.stitchingUnit)}</td>
+                      <td className="px-3 py-2 text-right">Rs. {formatCurrency(line.fabricUnit)}</td>
+                      <td className="px-3 py-2 text-right">{line.quantity}</td>
+                      <td className="px-3 py-2 text-right">Rs. {formatCurrency(line.lineTotal)}</td>
+                    </tr>
                   ))}
-                </div>
-              </RadioGroup>
+                  <tr className="border-t bg-muted/20">
+                    <td className="px-3 py-2 font-semibold" colSpan={4}>Estimated Total</td>
+                    <td className="px-3 py-2 text-right font-semibold">Rs. {formatCurrency(estimatedTotal)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => setStep(1)}>
-                  Back
-                </Button>
-                <Button type="button" onClick={() => setStep(3)} disabled={!formData.serviceKey}>
-                  Continue
-                </Button>
-              </div>
-            </Card>
-          )}
-
-          {step === 3 && (
-            <Card className="p-5 md:p-8">
-              <h2 className="text-xl font-bold mb-6">Select Measurements & Review</h2>
-              <div className="space-y-6 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-3">Saved Measurements</label>
-                  <Select
-                    value={formData.measurementId}
-                    onValueChange={(value) => handleChange(value, "measurementId")}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a saved measurement profile" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {measurementOptions.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.name} {item.isVerified ? "- Verified" : "- Suggested"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Additional Notes</label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => handleChange(e.target.value, "notes")}
-                    placeholder="Any special requirements or preferences..."
-                    className="w-full p-2 border rounded text-sm"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="bg-secondary p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Estimated Price</p>
-                  <p className="text-sm text-muted-foreground">Stitching: Rs. {formatCurrency(selectedService?.customerPrice ?? 0)}</p>
-                  <p className="text-sm text-muted-foreground">Cloth: Rs. {formatCurrency(clothCharge)}</p>
-                  <p className="text-3xl font-bold mt-1">Rs. {formatCurrency(estimatedTotal)}</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => setStep(2)}>
-                  Back
-                </Button>
-                <Button type="submit" size="lg" className="min-w-40" disabled={submitting}>
-                  {submitting ? <><Spinner className="mr-2" />Placing...</> : "Place Order"}
-                </Button>
-              </div>
-            </Card>
-          )}
+            <div className="flex justify-end">
+              <Button type="submit" size="lg" className="min-w-44" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Spinner className="mr-2" />Placing...
+                  </>
+                ) : (
+                  "Place Order"
+                )}
+              </Button>
+            </div>
+          </Card>
         </form>
       </div>
     </div>

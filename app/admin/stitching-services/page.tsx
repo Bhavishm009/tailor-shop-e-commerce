@@ -78,7 +78,7 @@ const initialForm: ServiceFormState = {
   name: "",
   measurementType: "CUSTOM",
   measurementGuideImage: "",
-  measurementFields: [{ clientId: createClientId(), key: "measurement_1", label: "", unit: "cm", image: null }],
+  measurementFields: [{ clientId: createClientId(), key: "measurement_1", label: "", unit: "in", image: null }],
   customerPrice: "",
   tailorRate: "",
   isActive: true,
@@ -158,7 +158,7 @@ export default function AdminStitchingServicesPage() {
     const fields =
       Array.isArray(service.measurementFields) && service.measurementFields.length > 0
         ? service.measurementFields.map((field) => ({ ...field, clientId: createClientId() }))
-        : [{ clientId: createClientId(), key: "measurement_1", label: "", unit: "cm", image: null }]
+        : [{ clientId: createClientId(), key: "measurement_1", label: "", unit: "in", image: null }]
     setForm({
       id: service.id,
       key: service.key,
@@ -179,7 +179,7 @@ export default function AdminStitchingServicesPage() {
       ...prev,
       measurementFields: [
         ...prev.measurementFields,
-        { clientId: createClientId(), key: `measurement_${prev.measurementFields.length + 1}`, label: "", unit: "cm", image: null },
+        { clientId: createClientId(), key: `measurement_${prev.measurementFields.length + 1}`, label: "", unit: "in", image: null },
       ],
     }))
   }
@@ -267,7 +267,7 @@ export default function AdminStitchingServicesPage() {
       .map((field) => ({
         key: normalizeFieldKey(field.key || field.label),
         label: field.label.trim(),
-        unit: field.unit?.trim() || "cm",
+        unit: field.unit?.trim() || "in",
         image: field.image || null,
       }))
       .filter((field) => field.label.length > 0 && field.key.length > 0)
@@ -338,7 +338,7 @@ export default function AdminStitchingServicesPage() {
       <Card className="p-4 md:p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search key/category/name" className="w-full lg:max-w-2xl" />
-          <select className="h-10 rounded-md border bg-background px-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")}>
+          <select className="h-10 rounded-md border bg-background" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")}>
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
@@ -461,9 +461,9 @@ export default function AdminStitchingServicesPage() {
                         <label className="text-xs font-medium text-muted-foreground">Unit</label>
                         <Input
                           className="bg-background"
-                          value={field.unit || "cm"}
+                          value={field.unit || "in"}
                           onChange={(e) => updateField(index, { unit: e.target.value })}
-                          placeholder="cm"
+                          placeholder="in"
                         />
                       </div>
                       <div className="flex items-center gap-1">

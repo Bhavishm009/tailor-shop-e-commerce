@@ -47,6 +47,7 @@ export default function AdminLayout({
     { href: "/admin/chats", label: "Order Chats", icon: MessageSquare },
     { href: "/admin/tailor-accounts", label: "Tailor Accounts", icon: Wallet },
     { href: "/admin/stitching-services", label: "Stitching Services", icon: Scissors },
+    { href: "/admin/fabrics", label: "Fabrics", icon: Package },
     { href: "/admin/reviews", label: "Reviews", icon: Star },
     { href: "/admin/notifications", label: "Notifications", icon: Bell },
     { href: "/admin/settings", label: "Settings", icon: Settings },

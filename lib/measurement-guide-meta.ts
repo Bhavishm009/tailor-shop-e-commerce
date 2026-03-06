@@ -33,7 +33,7 @@ const GUIDE_META: Record<string, MeasurementGuideMeta> = {
   GENERIC: {
     imageSrc: "/measurement-guides/generic.svg",
     title: "Measurement Guide",
-    hint: "Provide all values in centimeters for consistency.",
+    hint: "Provide all values in inches for consistency.",
   },
 }
 

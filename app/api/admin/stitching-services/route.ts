@@ -46,7 +46,7 @@ function normalizeMeasurementFields(fields: MeasurementFieldInput[] | undefined)
       return {
         key,
         label,
-        unit: field.unit?.trim() || "cm",
+        unit: field.unit?.trim() || "in",
         image: typeof field.image === "string" ? field.image.trim() || null : null,
       }
     })
