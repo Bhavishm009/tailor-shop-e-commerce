@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid stitching service" }, { status: 400 })
     }
 
-    const measurementType = resolveMeasurementType(service.key, service.name)
+    const measurementType = service.measurementType || resolveMeasurementType(service.key, service.name)
     const asNumber = (value: unknown) => {
       const parsed = Number(value)
       return Number.isFinite(parsed) ? parsed : undefined

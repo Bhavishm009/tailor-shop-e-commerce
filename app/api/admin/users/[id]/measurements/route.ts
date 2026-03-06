@@ -9,6 +9,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { id } = await params
     const body = (await request.json()) as {
+      serviceKey?: string
+      measurementType?: string
+      measurementData?: Record<string, number | string | null>
       name?: string
       notes?: string
       chest?: number | string
@@ -39,6 +42,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const parsed = Number(value)
       return Number.isFinite(parsed) ? parsed : undefined
     }
+    const measurementData = body.measurementData || {}
 
     const measurement = await db.measurement.create({
       data: {
@@ -49,12 +53,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         source: "ADMIN",
         verifiedByAdminId: session.user.id,
         verifiedAt: new Date(),
-        chest: asNumber(body.chest),
-        waist: asNumber(body.waist),
-        hip: asNumber(body.hip),
-        shoulder: asNumber(body.shoulder),
-        sleeveLength: asNumber(body.sleeveLength),
-        garmentLength: asNumber(body.garmentLength),
+        measurementType: body.measurementType || null,
+        measurementData,
+        chest: asNumber(body.chest ?? measurementData.chest),
+        waist: asNumber(body.waist ?? measurementData.waist),
+        hip: asNumber(body.hip ?? measurementData.hip),
+        shoulder: asNumber(body.shoulder ?? measurementData.shoulder),
+        sleeveLength: asNumber(body.sleeveLength ?? measurementData.sleeveLength),
+        garmentLength: asNumber(body.garmentLength ?? measurementData.garmentLength),
       },
     })
 
@@ -64,4 +70,3 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Failed to add measurement." }, { status: 500 })
   }
 }
-

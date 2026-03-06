@@ -165,6 +165,9 @@ model StitchingService {
   key           String   @unique
   category      String
   name          String
+  measurementType String? @default("GENERIC")
+  measurementFields Json?
+  measurementGuideImage String?
   customerPrice Float
   tailorRate    Float
   isActive      Boolean  @default(true)

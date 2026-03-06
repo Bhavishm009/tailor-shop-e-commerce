@@ -61,6 +61,9 @@ export async function POST(request: Request) {
       }
       measurement?: {
         name?: string
+        serviceKey?: string
+        measurementType?: string
+        measurementData?: Record<string, number | string | null>
         notes?: string
         chest?: number | string
         waist?: number | string
@@ -94,6 +97,9 @@ export async function POST(request: Request) {
     }
 
     const address = body.address || {}
+    const hasAnyAddressValue = [address.street, address.city, address.state, address.postalCode, address.country].some(
+      (value) => typeof value === "string" && value.trim().length > 0,
+    )
     const hasCompleteAddress =
       typeof address.street === "string" &&
       typeof address.city === "string" &&
@@ -106,8 +112,11 @@ export async function POST(request: Request) {
       address.postalCode.trim() &&
       address.country.trim()
 
-    if (!hasCompleteAddress) {
-      return NextResponse.json({ error: "Complete address is required" }, { status: 400 })
+    if (hasAnyAddressValue && !hasCompleteAddress) {
+      return NextResponse.json({ error: "Provide complete address or leave it empty." }, { status: 400 })
+    }
+    if (hasCompleteAddress && !/^\d{6}$/.test(address.postalCode!.trim())) {
+      return NextResponse.json({ error: "PIN code must be 6 digits" }, { status: 400 })
     }
 
     const existing = await db.user.findUnique({ where: { email } })
@@ -150,19 +159,22 @@ export async function POST(request: Request) {
         })
       }
 
-      await tx.address.create({
-        data: {
-          userId: createdUser.id,
-          street: address.street!.trim(),
-          city: address.city!.trim(),
-          state: address.state!.trim(),
-          postalCode: address.postalCode!.trim(),
-          country: address.country!.trim(),
-          isDefault: true,
-        },
-      })
+      if (hasCompleteAddress) {
+        await tx.address.create({
+          data: {
+            userId: createdUser.id,
+            street: address.street!.trim(),
+            city: address.city!.trim(),
+            state: address.state!.trim(),
+            postalCode: address.postalCode!.trim(),
+            country: address.country!.trim(),
+            isDefault: true,
+          },
+        })
+      }
 
       if (createdUser.role === "CUSTOMER" && body.measurement?.name?.trim()) {
+        const measurementData = body.measurement.measurementData || {}
         await tx.measurement.create({
           data: {
             userId: createdUser.id,
@@ -172,12 +184,14 @@ export async function POST(request: Request) {
             source: "ADMIN",
             verifiedByAdminId: session.user.id,
             verifiedAt: new Date(),
-            chest: asNumber(body.measurement.chest),
-            waist: asNumber(body.measurement.waist),
-            hip: asNumber(body.measurement.hip),
-            shoulder: asNumber(body.measurement.shoulder),
-            sleeveLength: asNumber(body.measurement.sleeveLength),
-            garmentLength: asNumber(body.measurement.garmentLength),
+            measurementType: body.measurement.measurementType || null,
+            measurementData,
+            chest: asNumber(body.measurement.chest ?? measurementData.chest),
+            waist: asNumber(body.measurement.waist ?? measurementData.waist),
+            hip: asNumber(body.measurement.hip ?? measurementData.hip),
+            shoulder: asNumber(body.measurement.shoulder ?? measurementData.shoulder),
+            sleeveLength: asNumber(body.measurement.sleeveLength ?? measurementData.sleeveLength),
+            garmentLength: asNumber(body.measurement.garmentLength ?? measurementData.garmentLength),
           },
         })
       }

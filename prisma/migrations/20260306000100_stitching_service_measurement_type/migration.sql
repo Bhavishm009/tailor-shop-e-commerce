@@ -1,0 +1,12 @@
+ALTER TABLE "StitchingService"
+ADD COLUMN IF NOT EXISTS "measurementType" TEXT NOT NULL DEFAULT 'GENERIC';
+
+UPDATE "StitchingService"
+SET "measurementType" = CASE
+  WHEN UPPER("key") LIKE '%SHIRT%' OR UPPER("name") LIKE '%SHIRT%' THEN 'SHIRT'
+  WHEN UPPER("key") LIKE '%PANT%' OR UPPER("name") LIKE '%PANT%' OR UPPER("name") LIKE '%TROUSER%' THEN 'PANT'
+  WHEN UPPER("key") LIKE '%KURTA%' OR UPPER("name") LIKE '%KURTA%' THEN 'KURTA'
+  WHEN UPPER("key") LIKE '%BLOUSE%' OR UPPER("name") LIKE '%BLOUSE%' THEN 'BLOUSE'
+  WHEN UPPER("key") LIKE '%SALWAR%' OR UPPER("name") LIKE '%SALWAR%' OR UPPER("name") LIKE '%SUIT%' THEN 'SALWAR'
+  ELSE COALESCE("measurementType", 'GENERIC')
+END;

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
+import { MeasurementGuidePanel } from "@/components/measurement-guide-panel"
 import { ChevronLeft } from "lucide-react"
 
 type UserDetail = {
@@ -67,6 +68,30 @@ type UserDetail = {
   }
 }
 
+type MeasurementField = {
+  key: string
+  label: string
+  unit?: string
+  image?: string | null
+}
+
+type StitchingServiceOption = {
+  id: string
+  key: string
+  name: string
+  category: string
+  measurementType?: string
+  measurementFields?: MeasurementField[]
+  measurementGuideImage?: string | null
+}
+
+const createMeasurementForm = () => ({
+  serviceKey: "",
+  name: "",
+  notes: "",
+  values: {} as Record<string, string>,
+})
+
 export default function AdminUserDetailPage() {
   const params = useParams<{ id: string }>()
   const userId = typeof params?.id === "string" ? params.id : ""
@@ -75,18 +100,16 @@ export default function AdminUserDetailPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [savingMeasurement, setSavingMeasurement] = useState(false)
-  const [measurementForm, setMeasurementForm] = useState({
-    name: "",
-    notes: "",
-    chest: "",
-    waist: "",
-    hip: "",
-    shoulder: "",
-    sleeveLength: "",
-    garmentLength: "",
-  })
+  const [services, setServices] = useState<StitchingServiceOption[]>([])
+  const [measurementForm, setMeasurementForm] = useState(createMeasurementForm)
+  const selectedService = services.find((service) => service.key === measurementForm.serviceKey)
+  const selectedFields = selectedService?.measurementFields || []
 
-  const canAddMeasurement = user?.role === "CUSTOMER" && measurementForm.name.trim().length > 0 && !savingMeasurement
+  const canAddMeasurement =
+    user?.role === "CUSTOMER" &&
+    measurementForm.name.trim().length > 0 &&
+    Boolean(measurementForm.serviceKey) &&
+    !savingMeasurement
 
   const loadUser = async () => {
     if (!userId) return
@@ -112,6 +135,20 @@ export default function AdminUserDetailPage() {
     void loadUser()
   }, [userId])
 
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        const response = await fetch("/api/stitching-services", { cache: "no-store" })
+        if (!response.ok) return
+        const data = (await response.json()) as StitchingServiceOption[]
+        setServices(data)
+      } catch {
+        setServices([])
+      }
+    }
+    void loadServices()
+  }, [])
+
   const latestOrders = useMemo(() => user?.orders.slice(0, 5) || [], [user?.orders])
   const latestCustomOrders = useMemo(() => user?.stitchingOrders.slice(0, 5) || [], [user?.stitchingOrders])
 
@@ -121,10 +158,23 @@ export default function AdminUserDetailPage() {
     setError("")
     setSuccess("")
     try {
+      const measurementData = Object.entries(measurementForm.values).reduce<Record<string, number | string | null>>(
+        (acc, [key, value]) => {
+          if (!value?.trim()) return acc
+          const parsed = Number(value)
+          acc[key] = Number.isFinite(parsed) ? parsed : value
+          return acc
+        },
+        {},
+      )
       const response = await fetch(`/api/admin/users/${user.id}/measurements`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(measurementForm),
+        body: JSON.stringify({
+          ...measurementForm,
+          measurementType: selectedService?.measurementType || undefined,
+          measurementData,
+        }),
       })
       const data = (await response.json().catch(() => ({ error: "Failed to add measurement." }))) as { error?: string }
       if (!response.ok) {
@@ -132,16 +182,7 @@ export default function AdminUserDetailPage() {
         return
       }
       setSuccess("Verified measurement added successfully.")
-      setMeasurementForm({
-        name: "",
-        notes: "",
-        chest: "",
-        waist: "",
-        hip: "",
-        shoulder: "",
-        sleeveLength: "",
-        garmentLength: "",
-      })
+      setMeasurementForm(createMeasurementForm())
       await loadUser()
     } finally {
       setSavingMeasurement(false)
@@ -269,15 +310,63 @@ export default function AdminUserDetailPage() {
         {user.role === "CUSTOMER" ? (
           <div className="space-y-3 rounded-md border p-3">
             <p className="text-sm font-medium">Add Verified Measurement</p>
+            <select
+              className="h-10 rounded-md border bg-background px-3"
+              value={measurementForm.serviceKey}
+              onChange={(e) =>
+                setMeasurementForm((prev) => ({
+                  ...prev,
+                  serviceKey: e.target.value,
+                  values: {},
+                  name: prev.name || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
+                }))
+              }
+            >
+              <option value="">Select stitching option</option>
+              {services.map((service) => (
+                <option key={service.id} value={service.key}>
+                  {service.name} ({service.category})
+                </option>
+              ))}
+            </select>
             <Input placeholder="Profile name" value={measurementForm.name} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <Input placeholder="Chest" type="number" value={measurementForm.chest} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, chest: e.target.value }))} />
-              <Input placeholder="Waist" type="number" value={measurementForm.waist} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, waist: e.target.value }))} />
-              <Input placeholder="Hip" type="number" value={measurementForm.hip} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, hip: e.target.value }))} />
-              <Input placeholder="Shoulder" type="number" value={measurementForm.shoulder} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, shoulder: e.target.value }))} />
-              <Input placeholder="Sleeve Length" type="number" value={measurementForm.sleeveLength} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, sleeveLength: e.target.value }))} />
-              <Input placeholder="Garment Length" type="number" value={measurementForm.garmentLength} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, garmentLength: e.target.value }))} />
-            </div>
+            {selectedFields.length > 0 ? (
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {selectedFields.map((field) => (
+                    <div key={field.key} className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        {field.label}{field.unit ? ` (${field.unit})` : ""}
+                      </label>
+                      {field.image ? (
+                        <img src={field.image} alt={field.label} className="h-20 w-full rounded border object-cover" />
+                      ) : null}
+                      <Input
+                        placeholder={`Enter ${field.label}`}
+                        type="number"
+                        value={measurementForm.values[field.key] || ""}
+                        onChange={(e) =>
+                          setMeasurementForm((prev) => ({
+                            ...prev,
+                            values: {
+                              ...prev.values,
+                              [field.key]: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+                <MeasurementGuidePanel
+                  measurementType={selectedService?.measurementType}
+                  imageSrc={selectedService?.measurementGuideImage}
+                  fields={selectedFields}
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Select stitching option to load measurement fields.</p>
+            )}
             <Input placeholder="Notes" value={measurementForm.notes} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, notes: e.target.value }))} />
             <div className="flex justify-end">
               <Button type="button" onClick={addVerifiedMeasurement} disabled={!canAddMeasurement}>

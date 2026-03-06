@@ -11,12 +11,15 @@ import { Spinner } from "@/components/ui/spinner"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Plus, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { MeasurementGuidePanel } from "@/components/measurement-guide-panel"
 
 interface Measurement {
   id: string
   name: string
   isVerified?: boolean
   source?: string | null
+  measurementType?: string | null
+  measurementData?: Record<string, number | string | null> | null
   chest?: number
   waist?: number
   hip?: number
@@ -24,6 +27,23 @@ interface Measurement {
   sleeveLength?: number
   garmentLength?: number
   notes?: string
+}
+
+type MeasurementField = {
+  key: string
+  label: string
+  unit?: string
+  image?: string | null
+}
+
+type StitchingServiceOption = {
+  id: string
+  key: string
+  name: string
+  category: string
+  measurementType?: string
+  measurementFields?: MeasurementField[]
+  measurementGuideImage?: string | null
 }
 
 export default function MeasurementsPage() {
@@ -34,29 +54,35 @@ export default function MeasurementsPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [showForm, setShowForm] = useState(false)
+  const [services, setServices] = useState<StitchingServiceOption[]>([])
   const [formData, setFormData] = useState({
+    serviceKey: "",
     name: "",
-    chest: "",
-    waist: "",
-    hip: "",
-    shoulder: "",
-    sleeveLength: "",
-    garmentLength: "",
+    values: {} as Record<string, string>,
     notes: "",
   })
+  const selectedService = services.find((service) => service.key === formData.serviceKey)
+  const selectedFields = selectedService?.measurementFields || []
 
   useEffect(() => {
     const loadMeasurements = async () => {
       setError("")
       try {
-        const response = await fetch("/api/measurements", { cache: "no-store" })
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({ error: "Failed to load measurements." }))
+        const [measurementResponse, serviceResponse] = await Promise.all([
+          fetch("/api/measurements", { cache: "no-store" }),
+          fetch("/api/stitching-services", { cache: "no-store" }),
+        ])
+        if (!measurementResponse.ok) {
+          const data = await measurementResponse.json().catch(() => ({ error: "Failed to load measurements." }))
           setError(data.error || "Failed to load measurements.")
           return
         }
-        const data = (await response.json()) as Measurement[]
+        const data = (await measurementResponse.json()) as Measurement[]
         setMeasurements(data)
+        if (serviceResponse.ok) {
+          const serviceData = (await serviceResponse.json()) as StitchingServiceOption[]
+          setServices(serviceData)
+        }
       } catch {
         setError("Failed to load measurements.")
       } finally {
@@ -69,6 +95,17 @@ export default function MeasurementsPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
+    if (name.startsWith("measurement_")) {
+      const fieldKey = name.replace("measurement_", "")
+      setFormData((prev) => ({
+        ...prev,
+        values: {
+          ...prev.values,
+          [fieldKey]: value,
+        },
+      }))
+      return
+    }
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -84,18 +121,26 @@ export default function MeasurementsPage() {
     setSaving(true)
 
     try {
+      const measurementData = Object.entries(formData.values).reduce<Record<string, number | string | null>>((acc, [key, raw]) => {
+        if (!raw?.trim()) return acc
+        const numeric = Number(raw)
+        acc[key] = Number.isFinite(numeric) ? numeric : raw
+        return acc
+      }, {})
       const response = await fetch("/api/measurements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.name,
+          measurementType: selectedService?.measurementType || "GENERIC",
+          measurementData,
           notes: formData.notes || null,
-          chest: asNumber(formData.chest),
-          waist: asNumber(formData.waist),
-          hip: asNumber(formData.hip),
-          shoulder: asNumber(formData.shoulder),
-          sleeveLength: asNumber(formData.sleeveLength),
-          garmentLength: asNumber(formData.garmentLength),
+          chest: asNumber(formData.values.chest || ""),
+          waist: asNumber(formData.values.waist || ""),
+          hip: asNumber(formData.values.hip || ""),
+          shoulder: asNumber(formData.values.shoulder || ""),
+          sleeveLength: asNumber(formData.values.sleeveLength || ""),
+          garmentLength: asNumber(formData.values.garmentLength || ""),
         }),
       })
 
@@ -109,13 +154,9 @@ export default function MeasurementsPage() {
 
       setMeasurements((prev) => [data as Measurement, ...prev])
       setFormData({
+        serviceKey: "",
         name: "",
-        chest: "",
-        waist: "",
-        hip: "",
-        shoulder: "",
-        sleeveLength: "",
-        garmentLength: "",
+        values: {},
         notes: "",
       })
       setShowForm(false)
@@ -164,6 +205,29 @@ export default function MeasurementsPage() {
             <h2 className="text-xl font-bold mb-6">New Measurement Profile</h2>
             <form onSubmit={handleAddMeasurement} className="space-y-6">
               <div>
+                <label className="block text-sm font-medium mb-2">Stitching Option</label>
+                <select
+                  value={formData.serviceKey}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      serviceKey: e.target.value,
+                      values: {},
+                      name: prev.name || `${e.target.selectedOptions[0]?.text || "Measurement"} Profile`,
+                    }))
+                  }
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  required
+                >
+                  <option value="">Select stitching option</option>
+                  {services.map((service) => (
+                    <option key={service.id} value={service.key}>
+                      {service.name} ({service.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-2">Profile Name</label>
                 <Input
                   name="name"
@@ -174,27 +238,37 @@ export default function MeasurementsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {[
-                  { name: "chest", label: "Chest (cm)" },
-                  { name: "waist", label: "Waist (cm)" },
-                  { name: "hip", label: "Hip (cm)" },
-                  { name: "shoulder", label: "Shoulder (cm)" },
-                  { name: "sleeveLength", label: "Sleeve Length (cm)" },
-                  { name: "garmentLength", label: "Garment Length (cm)" },
-                ].map((field) => (
-                  <div key={field.name}>
-                    <label className="block text-sm font-medium mb-2">{field.label}</label>
-                    <Input
-                      name={field.name}
-                      type="number"
-                      step="0.5"
-                      value={formData[field.name as keyof typeof formData]}
-                      onChange={handleChange}
-                    />
+              {selectedFields.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_280px]">
+                  <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+                    {selectedFields.map((field) => (
+                      <div key={field.key}>
+                        {field.image ? (
+                          <img src={field.image} alt={field.label} className="mb-2 h-20 w-full rounded border object-cover" />
+                        ) : null}
+                        <label className="block text-sm font-medium mb-2">
+                          {field.label}
+                          {field.unit ? ` (${field.unit})` : ""}
+                        </label>
+                        <Input
+                          name={`measurement_${field.key}`}
+                          type="number"
+                          step="0.5"
+                          value={formData.values[field.key] || ""}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                  <MeasurementGuidePanel
+                    measurementType={selectedService?.measurementType}
+                    imageSrc={selectedService?.measurementGuideImage}
+                    fields={selectedFields}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Select stitching option to show measurement inputs.</p>
+              )}
 
               <div>
                 <label className="block text-sm font-medium mb-2">Notes</label>
@@ -249,22 +323,30 @@ export default function MeasurementsPage() {
                       {measurement.isVerified ? "Added and verified by admin" : "Customer suggested measurement"}
                     </p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 text-sm">
-                      {[
-                        { key: "chest", label: "Chest" },
-                        { key: "waist", label: "Waist" },
-                        { key: "hip", label: "Hip" },
-                        { key: "shoulder", label: "Shoulder" },
-                        { key: "sleeveLength", label: "Sleeve" },
-                        { key: "garmentLength", label: "Length" },
-                      ].map(
-                        (field) =>
-                          measurement[field.key as keyof Measurement] && (
-                            <div key={field.key}>
-                              <span className="text-muted-foreground">{field.label}:</span>
-                              <p className="font-semibold">{measurement[field.key as keyof Measurement]} cm</p>
-                            </div>
-                          ),
-                      )}
+                      {Object.entries(measurement.measurementData || {}).map(([key, value]) => (
+                        <div key={key}>
+                          <span className="text-muted-foreground">{key}:</span>
+                          <p className="font-semibold">{String(value)} cm</p>
+                        </div>
+                      ))}
+                      {!measurement.measurementData || Object.keys(measurement.measurementData).length === 0
+                        ? [
+                            { key: "chest", label: "Chest" },
+                            { key: "waist", label: "Waist" },
+                            { key: "hip", label: "Hip" },
+                            { key: "shoulder", label: "Shoulder" },
+                            { key: "sleeveLength", label: "Sleeve" },
+                            { key: "garmentLength", label: "Length" },
+                          ].map((field) => {
+                            const value = measurement[field.key as "chest" | "waist" | "hip" | "shoulder" | "sleeveLength" | "garmentLength"]
+                            return value ? (
+                              <div key={field.key}>
+                                <span className="text-muted-foreground">{field.label}:</span>
+                                <p className="font-semibold">{value} cm</p>
+                              </div>
+                            ) : null
+                          })
+                        : null}
                     </div>
                     {measurement.notes && <p className="text-sm text-muted-foreground mt-4">{measurement.notes}</p>}
                   </div>

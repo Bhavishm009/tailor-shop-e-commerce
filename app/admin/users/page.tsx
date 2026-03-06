@@ -21,13 +21,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { MeasurementGuidePanel } from "@/components/measurement-guide-panel"
 import { validateEmail, validateIndianMobile } from "@/lib/validation"
 import { toast } from "sonner"
 
@@ -43,6 +44,53 @@ type UserRecord = {
 }
 
 type DatePreset = "ALL" | "TODAY" | "YESTERDAY" | "THIS_WEEK" | "LAST_WEEK" | "CUSTOM"
+type MeasurementField = {
+  key: string
+  label: string
+  unit?: string
+  image?: string | null
+}
+
+type StitchingServiceOption = {
+  id: string
+  key: string
+  name: string
+  category: string
+  customerPrice: number
+  tailorRate: number
+  measurementType?: string
+  measurementFields?: MeasurementField[]
+  measurementGuideImage?: string | null
+}
+
+const EMPTY_MEASUREMENT_VALUES: Record<string, string> = {}
+
+const createInitialMeasurementForm = () => ({
+  serviceKey: "",
+  name: "",
+  notes: "",
+  values: { ...EMPTY_MEASUREMENT_VALUES },
+})
+
+const createInitialUserForm = () => ({
+  name: "",
+  email: "",
+  phone: "",
+  role: "CUSTOMER" as "ADMIN" | "TAILOR" | "CUSTOMER",
+  dateOfBirth: "",
+  addAddress: false,
+  street: "",
+  city: "",
+  state: "",
+  postalCode: "",
+  country: "India",
+  autoLocating: false,
+  measurementEnabled: false,
+  measurementServiceKey: "",
+  measurementName: "",
+  measurementNotes: "",
+  measurementValues: { ...EMPTY_MEASUREMENT_VALUES },
+})
 
 const getStartOfDay = (date: Date) => {
   const start = new Date(date)
@@ -88,47 +136,29 @@ export default function UsersPage() {
   const [isAddMeasurementOpen, setIsAddMeasurementOpen] = useState(false)
   const [creatingUser, setCreatingUser] = useState(false)
   const [creatingMeasurement, setCreatingMeasurement] = useState(false)
+  const [loadingServices, setLoadingServices] = useState(false)
+  const [serviceOptions, setServiceOptions] = useState<StitchingServiceOption[]>([])
+  const [newUserFormSubmitted, setNewUserFormSubmitted] = useState(false)
   const [measurementTargetUser, setMeasurementTargetUser] = useState<{ id: string; name: string } | null>(null)
-  const [measurementForm, setMeasurementForm] = useState({
-    name: "",
-    notes: "",
-    chest: "",
-    waist: "",
-    hip: "",
-    shoulder: "",
-    sleeveLength: "",
-    garmentLength: "",
-  })
-  const [newUser, setNewUser] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "CUSTOMER" as "ADMIN" | "TAILOR" | "CUSTOMER",
-    dateOfBirth: "",
-    street: "",
-    city: "",
-    state: "",
-    postalCode: "",
-    country: "India",
-    measurementName: "",
-    measurementNotes: "",
-    chest: "",
-    waist: "",
-    hip: "",
-    shoulder: "",
-    sleeveLength: "",
-    garmentLength: "",
-  })
+  const [measurementForm, setMeasurementForm] = useState(createInitialMeasurementForm)
+  const [newUser, setNewUser] = useState(createInitialUserForm)
 
   const isNewUserNameValid = newUser.name.trim().length >= 2
   const isNewUserEmailValid = validateEmail(newUser.email)
   const isNewUserPhoneValid = validateIndianMobile(newUser.phone)
   const isNewUserDobValid = Boolean(newUser.dateOfBirth)
-  const isNewUserStreetValid = newUser.street.trim().length > 0
-  const isNewUserCityValid = newUser.city.trim().length > 0
-  const isNewUserStateValid = newUser.state.trim().length > 0
-  const isNewUserCountryValid = newUser.country.trim().length > 0
-  const isNewUserPostalValid = /^\d{6}$/.test(newUser.postalCode)
+  const isNewUserStreetValid = !newUser.addAddress || newUser.street.trim().length > 0
+  const isNewUserCityValid = !newUser.addAddress || newUser.city.trim().length > 0
+  const isNewUserStateValid = !newUser.addAddress || newUser.state.trim().length > 0
+  const isNewUserCountryValid = !newUser.addAddress || newUser.country.trim().length > 0
+  const isNewUserPostalValid = !newUser.addAddress || /^\d{6}$/.test(newUser.postalCode)
+  const selectedNewUserService = serviceOptions.find((service) => service.key === newUser.measurementServiceKey)
+  const selectedNewUserMeasurementFields = selectedNewUserService?.measurementFields || []
+  const selectedMeasurementService = serviceOptions.find((service) => service.key === measurementForm.serviceKey)
+  const selectedMeasurementFields = selectedMeasurementService?.measurementFields || []
+  const isOptionalMeasurementValid =
+    !newUser.measurementEnabled ||
+    (newUser.measurementName.trim().length > 0 && (!serviceOptions.length || Boolean(newUser.measurementServiceKey)))
   const canCreateUser =
     isNewUserNameValid &&
     isNewUserEmailValid &&
@@ -139,8 +169,12 @@ export default function UsersPage() {
     isNewUserStateValid &&
     isNewUserCountryValid &&
     isNewUserPostalValid &&
+    isOptionalMeasurementValid &&
     !creatingUser
-  const canCreateMeasurement = measurementForm.name.trim().length > 0 && !creatingMeasurement
+  const canCreateMeasurement =
+    measurementForm.name.trim().length > 0 &&
+    (!serviceOptions.length || Boolean(measurementForm.serviceKey)) &&
+    !creatingMeasurement
 
   const loadUsers = async () => {
     try {
@@ -165,12 +199,123 @@ export default function UsersPage() {
   }, [])
 
   useEffect(() => {
+    const loadStitchingServices = async () => {
+      setLoadingServices(true)
+      try {
+        const response = await fetch("/api/stitching-services", { cache: "no-store" })
+        if (!response.ok) return
+        const data = (await response.json()) as StitchingServiceOption[]
+        setServiceOptions(data)
+      } catch {
+        setServiceOptions([])
+      } finally {
+        setLoadingServices(false)
+      }
+    }
+    void loadStitchingServices()
+  }, [])
+
+  useEffect(() => {
     if (error) toast.error(error)
   }, [error])
 
   useEffect(() => {
     if (success) toast.success(success)
   }, [success])
+
+  const updateAddressFromPostalCode = async (postalCode: string) => {
+    if (!/^\d{6}$/.test(postalCode)) return
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${postalCode}`)
+      if (!response.ok) return
+      const payload = (await response.json()) as Array<{
+        Status?: string
+        PostOffice?: Array<{ District?: string; State?: string; Country?: string }>
+      }>
+      const first = payload[0]
+      const office = first?.PostOffice?.[0]
+      if (first?.Status !== "Success" || !office) return
+      setNewUser((prev) => ({
+        ...prev,
+        city: prev.city.trim() ? prev.city : office.District || prev.city,
+        state: prev.state.trim() ? prev.state : office.State || prev.state,
+        country: prev.country.trim() ? prev.country : office.Country || prev.country || "India",
+      }))
+    } catch {
+      // best-effort autofill; silently ignore failures
+    }
+  }
+
+  const autofillAddressFromLocation = async () => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported in this browser.")
+      return
+    }
+    setNewUser((prev) => ({ ...prev, addAddress: true, autoLocating: true }))
+    setError("")
+    const getCurrentPosition = () =>
+      new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        })
+      })
+
+    try {
+      const position = await getCurrentPosition()
+      const { latitude, longitude } = position.coords
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+      )
+      if (!response.ok) throw new Error("Failed to resolve address from location.")
+      const data = (await response.json()) as {
+        address?: {
+          road?: string
+          suburb?: string
+          city?: string
+          town?: string
+          village?: string
+          state?: string
+          postcode?: string
+          country?: string
+        }
+      }
+      const locationAddress = data.address || {}
+      const normalizedPostCode = (locationAddress.postcode || "").replace(/\D/g, "").slice(0, 6)
+      setNewUser((prev) => ({
+        ...prev,
+        street: prev.street || [locationAddress.road, locationAddress.suburb].filter(Boolean).join(", "),
+        city: prev.city || locationAddress.city || locationAddress.town || locationAddress.village || "",
+        state: prev.state || locationAddress.state || "",
+        postalCode: prev.postalCode || normalizedPostCode,
+        country: prev.country || locationAddress.country || "India",
+      }))
+    } catch {
+      setError("Unable to auto-detect address. Please enter address manually.")
+    } finally {
+      setNewUser((prev) => ({ ...prev, autoLocating: false }))
+    }
+  }
+
+  const setNewUserMeasurementValue = (fieldKey: string, value: string) => {
+    setNewUser((prev) => ({
+      ...prev,
+      measurementValues: {
+        ...prev.measurementValues,
+        [fieldKey]: value,
+      },
+    }))
+  }
+
+  const setMeasurementValue = (fieldKey: string, value: string) => {
+    setMeasurementForm((prev) => ({
+      ...prev,
+      values: {
+        ...prev.values,
+        [fieldKey]: value,
+      },
+    }))
+  }
 
   const roleOptions = useMemo(() => {
     const values = Array.from(new Set(users.map((user) => user.role)))
@@ -348,11 +493,27 @@ export default function UsersPage() {
   }
 
   const createUser = async () => {
+    setNewUserFormSubmitted(true)
     setError("")
     setSuccess("")
+    if (!canCreateUser) {
+      setError("Please correct the highlighted fields before creating the user.")
+      return
+    }
+
     setCreatingUser(true)
 
     try {
+      const measurementData = Object.entries(newUser.measurementValues).reduce<Record<string, number | string | null>>(
+        (acc, [key, rawValue]) => {
+          if (!rawValue?.trim()) return acc
+          const numeric = Number(rawValue)
+          acc[key] = Number.isFinite(numeric) ? numeric : rawValue
+          return acc
+        },
+        {},
+      )
+
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -362,24 +523,23 @@ export default function UsersPage() {
           phone: newUser.phone,
           role: newUser.role,
           dateOfBirth: newUser.dateOfBirth,
-          address: {
-            street: newUser.street,
-            city: newUser.city,
-            state: newUser.state,
-            postalCode: newUser.postalCode,
-            country: newUser.country,
-          },
+          address: newUser.addAddress
+            ? {
+                street: newUser.street,
+                city: newUser.city,
+                state: newUser.state,
+                postalCode: newUser.postalCode,
+                country: newUser.country,
+              }
+            : undefined,
           measurement:
-            newUser.role === "CUSTOMER" && newUser.measurementName.trim()
+            newUser.role === "CUSTOMER" && newUser.measurementEnabled && newUser.measurementName.trim()
               ? {
                   name: newUser.measurementName,
                   notes: newUser.measurementNotes,
-                  chest: newUser.chest,
-                  waist: newUser.waist,
-                  hip: newUser.hip,
-                  shoulder: newUser.shoulder,
-                  sleeveLength: newUser.sleeveLength,
-                  garmentLength: newUser.garmentLength,
+                  serviceKey: newUser.measurementServiceKey || undefined,
+                  measurementType: selectedNewUserService?.measurementType || undefined,
+                  measurementData,
                 }
               : undefined,
         }),
@@ -393,26 +553,8 @@ export default function UsersPage() {
       }
 
       setSuccess("User added successfully.")
-      setNewUser({
-        name: "",
-        email: "",
-        phone: "",
-        role: "CUSTOMER",
-        dateOfBirth: "",
-        street: "",
-        city: "",
-        state: "",
-        postalCode: "",
-        country: "India",
-        measurementName: "",
-        measurementNotes: "",
-        chest: "",
-        waist: "",
-        hip: "",
-        shoulder: "",
-        sleeveLength: "",
-        garmentLength: "",
-      })
+      setNewUser(createInitialUserForm())
+      setNewUserFormSubmitted(false)
       setIsAddCustomerOpen(false)
       await loadUsers()
     } finally {
@@ -430,16 +572,7 @@ export default function UsersPage() {
 
   const openAddMeasurement = (user: UserRecord) => {
     setMeasurementTargetUser({ id: user.id, name: user.name })
-    setMeasurementForm({
-      name: "",
-      notes: "",
-      chest: "",
-      waist: "",
-      hip: "",
-      shoulder: "",
-      sleeveLength: "",
-      garmentLength: "",
-    })
+    setMeasurementForm(createInitialMeasurementForm())
     setIsAddMeasurementOpen(true)
   }
 
@@ -449,10 +582,23 @@ export default function UsersPage() {
     setSuccess("")
     setCreatingMeasurement(true)
     try {
+      const measurementData = Object.entries(measurementForm.values).reduce<Record<string, number | string | null>>(
+        (acc, [key, rawValue]) => {
+          if (!rawValue?.trim()) return acc
+          const numeric = Number(rawValue)
+          acc[key] = Number.isFinite(numeric) ? numeric : rawValue
+          return acc
+        },
+        {},
+      )
       const response = await fetch(`/api/admin/users/${measurementTargetUser.id}/measurements`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(measurementForm),
+        body: JSON.stringify({
+          ...measurementForm,
+          measurementType: selectedMeasurementService?.measurementType || undefined,
+          measurementData,
+        }),
       })
       const data = (await response.json().catch(() => ({ error: "Failed to add measurement." }))) as { error?: string }
       if (!response.ok) {
@@ -732,34 +878,43 @@ export default function UsersPage() {
           </div>
       </ResponsiveFilterModal>
 
-      <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Add User</DialogTitle>
-            <DialogDescription>Create a customer, tailor, or admin account directly from the admin panel.</DialogDescription>
-          </DialogHeader>
+      <Sheet
+        open={isAddCustomerOpen}
+        onOpenChange={(open) => {
+          setIsAddCustomerOpen(open)
+          if (!open) {
+            setNewUser(createInitialUserForm())
+            setNewUserFormSubmitted(false)
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
+          <SheetHeader>
+            <SheetTitle>Add User</SheetTitle>
+            <SheetDescription>Create a customer, tailor, or admin account directly from the admin panel.</SheetDescription>
+          </SheetHeader>
 
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 gap-3 px-4 pb-4">
             <Input
               placeholder="Full name"
               value={newUser.name}
               onChange={(e) => setNewUser((prev) => ({ ...prev, name: e.target.value }))}
             />
-            {!isNewUserNameValid && newUser.name ? <p className="text-xs text-red-600">Name is too short</p> : null}
+            {!isNewUserNameValid && (newUser.name || newUserFormSubmitted) ? <p className="text-xs text-red-600">Name is too short</p> : null}
             <Input
               type="email"
               placeholder="Email"
               value={newUser.email}
               onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
             />
-            {!isNewUserEmailValid && newUser.email ? <p className="text-xs text-red-600">Invalid email</p> : null}
+            {!isNewUserEmailValid && (newUser.email || newUserFormSubmitted) ? <p className="text-xs text-red-600">Invalid email</p> : null}
             <Input
               type="tel"
               placeholder="Indian mobile (e.g. 9876543210)"
               value={newUser.phone}
               onChange={(e) => setNewUser((prev) => ({ ...prev, phone: e.target.value }))}
             />
-            {!isNewUserPhoneValid && newUser.phone ? (
+            {!isNewUserPhoneValid && (newUser.phone || newUserFormSubmitted) ? (
               <p className="text-xs text-red-600">Enter valid Indian mobile (starts with 6-9)</p>
             ) : null}
             <select
@@ -778,52 +933,195 @@ export default function UsersPage() {
               onChange={(value) => setNewUser((prev) => ({ ...prev, dateOfBirth: value }))}
               placeholder="Date of birth"
             />
-            {!isNewUserDobValid ? <p className="text-xs text-red-600">Date of birth is required</p> : null}
-            <Input placeholder="Street" value={newUser.street} onChange={(e) => setNewUser((prev) => ({ ...prev, street: e.target.value }))} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input placeholder="City" value={newUser.city} onChange={(e) => setNewUser((prev) => ({ ...prev, city: e.target.value }))} />
-              <Input placeholder="State" value={newUser.state} onChange={(e) => setNewUser((prev) => ({ ...prev, state: e.target.value }))} />
-              <Input placeholder="PIN code" value={newUser.postalCode} onChange={(e) => setNewUser((prev) => ({ ...prev, postalCode: e.target.value }))} />
-              <Input placeholder="Country" value={newUser.country} onChange={(e) => setNewUser((prev) => ({ ...prev, country: e.target.value }))} />
-            </div>
-            {!isNewUserStreetValid ? <p className="text-xs text-red-600">Street is required</p> : null}
-            {!isNewUserCityValid ? <p className="text-xs text-red-600">City is required</p> : null}
-            {!isNewUserStateValid ? <p className="text-xs text-red-600">State is required</p> : null}
-            {!isNewUserPostalValid ? <p className="text-xs text-red-600">PIN code must be 6 digits</p> : null}
-            {!isNewUserCountryValid ? <p className="text-xs text-red-600">Country is required</p> : null}
+            {!isNewUserDobValid && newUserFormSubmitted ? <p className="text-xs text-red-600">Date of birth is required</p> : null}
+
+            {!newUser.addAddress ? (
+              <div className="rounded-md border border-dashed p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">Address is optional while creating user.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setNewUser((prev) => ({ ...prev, addAddress: true }))}
+                  >
+                    Add Address
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Address Details</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => void autofillAddressFromLocation()} disabled={newUser.autoLocating}>
+                      {newUser.autoLocating ? "Detecting..." : "Use Current Location"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setNewUser((prev) => ({
+                          ...prev,
+                          addAddress: false,
+                          street: "",
+                          city: "",
+                          state: "",
+                          postalCode: "",
+                          country: "India",
+                          autoLocating: false,
+                        }))
+                      }
+                    >
+                      Remove Address
+                    </Button>
+                  </div>
+                </div>
+                <Input placeholder="Street" value={newUser.street} onChange={(e) => setNewUser((prev) => ({ ...prev, street: e.target.value }))} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input placeholder="City" value={newUser.city} onChange={(e) => setNewUser((prev) => ({ ...prev, city: e.target.value }))} />
+                  <Input placeholder="State" value={newUser.state} onChange={(e) => setNewUser((prev) => ({ ...prev, state: e.target.value }))} />
+                  <Input
+                    placeholder="PIN code"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={newUser.postalCode}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6)
+                      setNewUser((prev) => ({ ...prev, postalCode: digitsOnly }))
+                      if (digitsOnly.length === 6) {
+                        void updateAddressFromPostalCode(digitsOnly)
+                      }
+                    }}
+                  />
+                  <Input placeholder="Country" value={newUser.country} onChange={(e) => setNewUser((prev) => ({ ...prev, country: e.target.value }))} />
+                </div>
+                {!isNewUserStreetValid && newUserFormSubmitted ? <p className="text-xs text-red-600">Street is required</p> : null}
+                {!isNewUserCityValid && newUserFormSubmitted ? <p className="text-xs text-red-600">City is required</p> : null}
+                {!isNewUserStateValid && newUserFormSubmitted ? <p className="text-xs text-red-600">State is required</p> : null}
+                {!isNewUserPostalValid && newUserFormSubmitted ? <p className="text-xs text-red-600">PIN code must be 6 digits</p> : null}
+                {!isNewUserCountryValid && newUserFormSubmitted ? <p className="text-xs text-red-600">Country is required</p> : null}
+              </div>
+            )}
 
             {newUser.role === "CUSTOMER" ? (
               <div className="space-y-3 rounded-md border p-3">
-                <p className="text-sm font-medium">Verified Measurement (Optional, by Admin)</p>
-                <Input
-                  placeholder="Measurement profile name (e.g. Admin Verified - Formal)"
-                  value={newUser.measurementName}
-                  onChange={(e) => setNewUser((prev) => ({ ...prev, measurementName: e.target.value }))}
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input placeholder="Chest" type="number" value={newUser.chest} onChange={(e) => setNewUser((prev) => ({ ...prev, chest: e.target.value }))} />
-                  <Input placeholder="Waist" type="number" value={newUser.waist} onChange={(e) => setNewUser((prev) => ({ ...prev, waist: e.target.value }))} />
-                  <Input placeholder="Hip" type="number" value={newUser.hip} onChange={(e) => setNewUser((prev) => ({ ...prev, hip: e.target.value }))} />
-                  <Input placeholder="Shoulder" type="number" value={newUser.shoulder} onChange={(e) => setNewUser((prev) => ({ ...prev, shoulder: e.target.value }))} />
-                  <Input placeholder="Sleeve Length" type="number" value={newUser.sleeveLength} onChange={(e) => setNewUser((prev) => ({ ...prev, sleeveLength: e.target.value }))} />
-                  <Input placeholder="Garment Length" type="number" value={newUser.garmentLength} onChange={(e) => setNewUser((prev) => ({ ...prev, garmentLength: e.target.value }))} />
-                </div>
-                <Input
-                  placeholder="Measurement notes"
-                  value={newUser.measurementNotes}
-                  onChange={(e) => setNewUser((prev) => ({ ...prev, measurementNotes: e.target.value }))}
-                />
+                {!newUser.measurementEnabled ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">You can attach a verified measurement profile now.</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setNewUser((prev) => ({ ...prev, measurementEnabled: true }))}
+                    >
+                      Add Measurement
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium">Verified Measurement</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setNewUser((prev) => ({
+                            ...prev,
+                            measurementEnabled: false,
+                            measurementServiceKey: "",
+                            measurementName: "",
+                            measurementNotes: "",
+                            measurementValues: {},
+                          }))
+                        }
+                      >
+                        Remove Measurement
+                      </Button>
+                    </div>
+                    <select
+                      className="h-10 rounded-md border bg-background px-3"
+                      value={newUser.measurementServiceKey}
+                      onChange={(e) =>
+                        setNewUser((prev) => ({
+                          ...prev,
+                          measurementServiceKey: e.target.value,
+                          measurementValues: {},
+                          measurementName: prev.measurementName || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
+                        }))
+                      }
+                    >
+                      <option value="">Select stitching option</option>
+                      {serviceOptions.map((service) => (
+                        <option key={service.id} value={service.key}>
+                          {service.name} ({service.category})
+                        </option>
+                      ))}
+                    </select>
+                    {!newUser.measurementServiceKey && newUserFormSubmitted ? <p className="text-xs text-red-600">Select stitching option for measurement</p> : null}
+                    <Input
+                      placeholder="Measurement profile name"
+                      value={newUser.measurementName}
+                      onChange={(e) => setNewUser((prev) => ({ ...prev, measurementName: e.target.value }))}
+                    />
+                    {!newUser.measurementName.trim() && newUserFormSubmitted ? <p className="text-xs text-red-600">Measurement profile name is required</p> : null}
+
+                    {selectedNewUserMeasurementFields.length > 0 ? (
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_280px]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {selectedNewUserMeasurementFields.map((field) => (
+                            <div key={field.key} className="space-y-2">
+                              <label className="text-xs font-medium text-muted-foreground">
+                                {field.label}{field.unit ? ` (${field.unit})` : ""}
+                              </label>
+                              {field.image ? (
+                                <img src={field.image} alt={field.label} className="h-20 w-full rounded border object-cover" />
+                              ) : null}
+                              <Input
+                                type="number"
+                                inputMode="decimal"
+                                placeholder={`Enter ${field.label}`}
+                                value={newUser.measurementValues[field.key] || ""}
+                                onChange={(e) => setNewUserMeasurementValue(field.key, e.target.value)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <MeasurementGuidePanel
+                          measurementType={selectedNewUserService?.measurementType}
+                          imageSrc={selectedNewUserService?.measurementGuideImage}
+                          fields={selectedNewUserMeasurementFields}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {loadingServices ? "Loading stitching options..." : "Select stitching option to load measurement fields."}
+                      </p>
+                    )}
+
+                    <Input
+                      placeholder="Measurement notes"
+                      value={newUser.measurementNotes}
+                      onChange={(e) => setNewUser((prev) => ({ ...prev, measurementNotes: e.target.value }))}
+                    />
+                  </>
+                )}
               </div>
             ) : null}
           </div>
 
-          <DialogFooter className="justify-center gap-3">
+          <SheetFooter className="px-4 pb-4">
+            <div className="flex w-full justify-center gap-3">
             <Button
               type="button"
               variant="outline"
               size="lg"
               className="min-w-32"
-              onClick={() => setIsAddCustomerOpen(false)}
+              onClick={() => {
+                setIsAddCustomerOpen(false)
+                setNewUser(createInitialUserForm())
+                setNewUserFormSubmitted(false)
+              }}
               disabled={creatingUser}
             >
               Cancel
@@ -831,33 +1129,85 @@ export default function UsersPage() {
             <Button type="button" size="lg" className="min-w-40" onClick={createUser} disabled={!canCreateUser}>
               {creatingUser ? <><Spinner className="mr-2" />Creating...</> : "Create User"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
-      <Dialog open={isAddMeasurementOpen} onOpenChange={setIsAddMeasurementOpen}>
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add Verified Measurement</DialogTitle>
-            <DialogDescription>
+      <Sheet
+        open={isAddMeasurementOpen}
+        onOpenChange={(open) => {
+          setIsAddMeasurementOpen(open)
+          if (!open) {
+            setMeasurementForm(createInitialMeasurementForm())
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto p-0">
+          <SheetHeader>
+            <SheetTitle>Add Verified Measurement</SheetTitle>
+            <SheetDescription>
               Add admin-verified measurement for {measurementTargetUser?.name || "customer"}.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 gap-3 px-4 pb-4">
+            <select
+              className="h-10 rounded-md border bg-background px-3"
+              value={measurementForm.serviceKey}
+              onChange={(e) =>
+                setMeasurementForm((prev) => ({
+                  ...prev,
+                  serviceKey: e.target.value,
+                  values: {},
+                  name: prev.name || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
+                }))
+              }
+            >
+              <option value="">Select stitching option</option>
+              {serviceOptions.map((service) => (
+                <option key={service.id} value={service.key}>
+                  {service.name} ({service.category})
+                </option>
+              ))}
+            </select>
             <Input
               placeholder="Measurement profile name"
               value={measurementForm.name}
               onChange={(e) => setMeasurementForm((prev) => ({ ...prev, name: e.target.value }))}
             />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input placeholder="Chest" type="number" value={measurementForm.chest} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, chest: e.target.value }))} />
-              <Input placeholder="Waist" type="number" value={measurementForm.waist} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, waist: e.target.value }))} />
-              <Input placeholder="Hip" type="number" value={measurementForm.hip} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, hip: e.target.value }))} />
-              <Input placeholder="Shoulder" type="number" value={measurementForm.shoulder} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, shoulder: e.target.value }))} />
-              <Input placeholder="Sleeve Length" type="number" value={measurementForm.sleeveLength} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, sleeveLength: e.target.value }))} />
-              <Input placeholder="Garment Length" type="number" value={measurementForm.garmentLength} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, garmentLength: e.target.value }))} />
-            </div>
+            {selectedMeasurementFields.length > 0 ? (
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {selectedMeasurementFields.map((field) => (
+                    <div key={field.key} className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        {field.label}{field.unit ? ` (${field.unit})` : ""}
+                      </label>
+                      {field.image ? (
+                        <img src={field.image} alt={field.label} className="h-20 w-full rounded border object-cover" />
+                      ) : null}
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder={`Enter ${field.label}`}
+                        value={measurementForm.values[field.key] || ""}
+                        onChange={(e) => setMeasurementValue(field.key, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <MeasurementGuidePanel
+                  measurementType={selectedMeasurementService?.measurementType}
+                  imageSrc={selectedMeasurementService?.measurementGuideImage}
+                  fields={selectedMeasurementFields}
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {loadingServices ? "Loading stitching options..." : "Select stitching option to load measurement fields."}
+              </p>
+            )}
             <Input
               placeholder="Notes"
               value={measurementForm.notes}
@@ -865,16 +1215,26 @@ export default function UsersPage() {
             />
           </div>
 
-          <DialogFooter className="justify-center gap-3">
-            <Button type="button" variant="outline" onClick={() => setIsAddMeasurementOpen(false)} disabled={creatingMeasurement}>
+          <SheetFooter className="px-4 pb-4">
+            <div className="flex w-full justify-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsAddMeasurementOpen(false)
+                setMeasurementForm(createInitialMeasurementForm())
+              }}
+              disabled={creatingMeasurement}
+            >
               Cancel
             </Button>
             <Button type="button" onClick={addMeasurementForUser} disabled={!canCreateMeasurement}>
               {creatingMeasurement ? <><Spinner className="mr-2" />Saving...</> : "Save Verified Measurement"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Selected cloth type does not match cloth option." }, { status: 400 })
     }
 
-    const measurementType = resolveMeasurementType(service.key, service.name)
+    const measurementType = service.measurementType || resolveMeasurementType(service.key, service.name)
 
     const asNumber = (value: unknown) => {
       const parsed = Number(value)

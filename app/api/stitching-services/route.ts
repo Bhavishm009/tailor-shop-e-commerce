@@ -26,11 +26,13 @@ export async function GET() {
 
     return NextResponse.json(
       services.map((service) => {
-        const measurementType = resolveMeasurementType(service.key, service.name)
+        const measurementType = service.measurementType || resolveMeasurementType(service.key, service.name)
+        const customFields = Array.isArray(service.measurementFields) ? service.measurementFields : []
         return {
           ...service,
           measurementType,
-          measurementFields: getMeasurementPreset(measurementType).fields,
+          measurementFields: customFields.length > 0 ? customFields : getMeasurementPreset(measurementType).fields,
+          measurementGuideImage: service.measurementGuideImage || null,
         }
       }),
     )

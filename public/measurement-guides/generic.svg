@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220">
+  <rect width="320" height="220" fill="#f8fafc"/>
+  <rect x="12" y="12" width="296" height="196" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+  <circle cx="160" cy="54" r="22" fill="#e2e8f0" stroke="#94a3b8"/>
+  <rect x="126" y="80" width="68" height="88" rx="18" fill="#e2e8f0" stroke="#94a3b8"/>
+  <line x1="96" y1="106" x2="224" y2="106" stroke="#2563eb" stroke-width="3"/>
+  <line x1="112" y1="136" x2="208" y2="136" stroke="#2563eb" stroke-width="3"/>
+  <text x="160" y="196" text-anchor="middle" font-size="14" fill="#475569">Generic body reference</text>
+</svg>
