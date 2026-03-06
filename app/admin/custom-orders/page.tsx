@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +13,7 @@ import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { RowActionsMenu } from "@/components/admin/row-actions-menu"
+import { Plus } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -309,6 +311,12 @@ export default function CustomOrdersPage() {
     <div className="p-4 md:p-8 space-y-6 md:space-y-8">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl md:text-3xl font-bold">Custom Orders</h1>
+        <Button asChild>
+          <Link href="/admin/custom-orders/create">
+            <Plus className="mr-2 h-4 w-4" />
+            Create Order for Customer
+          </Link>
+        </Button>
       </div>
 
       <FeedbackToasts error={error} success={success} />

@@ -8,6 +8,16 @@ export async function POST(request: Request) {
     const { session, response } = await requireAuth()
     if (response || !session) return response
 
+    // Verify user exists in database
+    const userExists = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true }
+    })
+    
+    if (!userExists) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
     const body = (await request.json()) as {
       endpoint?: string
       keys?: { p256dh?: string; auth?: string }
@@ -59,6 +69,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[notifications/push-subscription/post]", error)
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
+      return NextResponse.json({ error: "User not found. Please log in again." }, { status: 404 })
+    }
     return NextResponse.json({ error: "Failed to save push subscription" }, { status: 500 })
   }
 }
@@ -67,6 +80,16 @@ export async function DELETE(request: Request) {
   try {
     const { session, response } = await requireAuth()
     if (response || !session) return response
+
+    // Verify user exists in database
+    const userExists = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true }
+    })
+    
+    if (!userExists) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
 
     const body = (await request.json()) as { endpoint?: string }
     if (!body.endpoint) return NextResponse.json({ error: "Endpoint is required" }, { status: 400 })
@@ -91,6 +114,9 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[notifications/push-subscription/delete]", error)
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
+      return NextResponse.json({ error: "User not found. Please log in again." }, { status: 404 })
+    }
     return NextResponse.json({ error: "Failed to remove push subscription" }, { status: 500 })
   }
 }

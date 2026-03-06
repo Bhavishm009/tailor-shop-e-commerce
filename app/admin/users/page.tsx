@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -180,6 +180,29 @@ export default function UsersPage() {
   const [measurementTargetUser, setMeasurementTargetUser] = useState<{ id: string; name: string } | null>(null)
   const [measurementForm, setMeasurementForm] = useState(createInitialMeasurementForm)
   const [newUser, setNewUser] = useState(createInitialUserForm)
+  const [serviceSearch, setServiceSearch] = useState("")
+  const [fabricSearch, setFabricSearch] = useState("")
+
+  // Filtered options for searchable dropdowns
+  const filteredServices = useMemo(() => {
+    if (!serviceSearch.trim()) return serviceOptions
+    const term = serviceSearch.toLowerCase()
+    return serviceOptions.filter(service => 
+      service.name.toLowerCase().includes(term) || 
+      service.category.toLowerCase().includes(term)
+    )
+  }, [serviceOptions, serviceSearch])
+
+  const filteredFabrics = useMemo(() => {
+    if (!fabricSearch.trim()) return fabricOptions.filter(item => item.stockMeters > 0)
+    const term = fabricSearch.toLowerCase()
+    return fabricOptions.filter(item => 
+      item.stockMeters > 0 && (
+        item.name.toLowerCase().includes(term) || 
+        item.clothType.toLowerCase().includes(term)
+      )
+    )
+  }, [fabricOptions, fabricSearch])
 
   const isNewUserNameValid = newUser.name.trim().length >= 2
   const isNewUserEmailValid = validateEmail(newUser.email)
@@ -1241,25 +1264,37 @@ export default function UsersPage() {
                         Remove Measurement
                       </Button>
                     </div>
-                    <select
-                      className="h-10 rounded-md border bg-background w-full"
-                      value={newUser.measurementServiceKey}
-                      onChange={(e) =>
-                        setNewUser((prev) => ({
-                          ...prev,
-                          measurementServiceKey: e.target.value,
-                          measurementValues: {},
-                          measurementName: prev.measurementName || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
-                        }))
-                      }
-                    >
-                      <option value="">Select stitching option</option>
-                      {serviceOptions.map((service) => (
-                        <option key={service.id} value={service.key}>
-                          {service.name} ({service.category})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Stitching Service</label>
+                      <div className="relative">
+                        <Input
+                          placeholder="Search services..."
+                          value={serviceSearch}
+                          onChange={(e) => setServiceSearch(e.target.value)}
+                          className="mb-2"
+                        />
+                        <select
+                          className="h-10 w-full rounded-md border bg-background px-3"
+                          value={newUser.measurementServiceKey}
+                          onChange={(e) => {
+                            setNewUser((prev) => ({
+                              ...prev,
+                              measurementServiceKey: e.target.value,
+                              measurementValues: {},
+                              measurementName: prev.measurementName || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
+                            }))
+                            setServiceSearch("") // Clear search after selection
+                          }}
+                        >
+                          <option value="">Select stitching option</option>
+                          {filteredServices.map((service) => (
+                            <option key={service.id} value={service.key}>
+                              {service.name} ({service.category}) - Rs. {service.customerPrice}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                     {!newUser.measurementServiceKey && newUserFormSubmitted ? <p className="text-xs text-red-600">Select stitching option for measurement</p> : null}
                     <Input
                       placeholder="Measurement profile name"
@@ -1365,20 +1400,32 @@ export default function UsersPage() {
                           ) : null}
                           {newUser.orderFabricMode === "WITH_SHOP_FABRIC" ? (
                             <div className="space-y-3">
-                              <select
-                                className="h-10 rounded-md border bg-background px-3"
-                                value={newUser.orderFabricOptionId}
-                                onChange={(e) => setNewUser((prev) => ({ ...prev, orderFabricOptionId: e.target.value }))}
-                              >
-                                <option value="">Select fabric option</option>
-                                {fabricOptions
-                                  .filter((item) => item.stockMeters > 0)
-                                  .map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                      {item.name} ({item.clothType}) - Rs. {item.sellRatePerMeter}/m - Stock {item.stockMeters.toFixed(2)}m
-                                    </option>
-                                  ))}
-                              </select>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Select Fabric</label>
+                                <div className="relative">
+                                  <Input
+                                    placeholder="Search fabrics..."
+                                    value={fabricSearch}
+                                    onChange={(e) => setFabricSearch(e.target.value)}
+                                    className="mb-2"
+                                  />
+                                  <select
+                                    className="h-10 w-full rounded-md border bg-background px-3"
+                                    value={newUser.orderFabricOptionId}
+                                    onChange={(e) => {
+                                      setNewUser((prev) => ({ ...prev, orderFabricOptionId: e.target.value }))
+                                      setFabricSearch("") // Clear search after selection
+                                    }}
+                                  >
+                                    <option value="">Select fabric option</option>
+                                    {filteredFabrics.map((item) => (
+                                      <option key={item.id} value={item.id}>
+                                        {item.name} ({item.clothType}) - Rs. {item.sellRatePerMeter}/m - Stock {item.stockMeters.toFixed(2)}m
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
                               <Input
                                 type="number"
                                 min={0.1}
@@ -1388,21 +1435,41 @@ export default function UsersPage() {
                                 onChange={(e) => setNewUser((prev) => ({ ...prev, orderFabricMeters: e.target.value }))}
                               />
                               {selectedNewUserFabric ? (
-                                <div className="rounded-md border p-2 space-y-2">
-                                  <p className="text-xs text-muted-foreground">
-                                    Price: Rs. {selectedNewUserFabric.sellRatePerMeter}/meter, Stock: {selectedNewUserFabric.stockMeters.toFixed(2)}m
-                                  </p>
-                                  {selectedNewUserFabric.image ? (
-                                    <img
-                                      src={selectedNewUserFabric.image}
-                                      alt={selectedNewUserFabric.name}
-                                      className="h-28 w-full rounded border object-cover"
-                                    />
-                                  ) : null}
+                                <div className="rounded-md border p-3 space-y-3">
+                                  <div className="flex items-start gap-3">
+                                    {selectedNewUserFabric.image ? (
+                                      <img
+                                        src={selectedNewUserFabric.image}
+                                        alt={selectedNewUserFabric.name}
+                                        className="h-20 w-20 rounded border object-cover flex-shrink-0"
+                                      />
+                                    ) : (
+                                      <div className="h-20 w-20 rounded border bg-muted flex-shrink-0 flex items-center justify-center">
+                                        <span className="text-xs text-muted-foreground">No image</span>
+                                      </div>
+                                    )}
+                                    <div className="flex-1">
+                                      <h4 className="font-medium text-sm">{selectedNewUserFabric.name}</h4>
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        Type: {selectedNewUserFabric.clothType}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        Price: Rs. {selectedNewUserFabric.sellRatePerMeter}/meter
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        Available Stock: {selectedNewUserFabric.stockMeters.toFixed(2)}m
+                                      </p>
+                                      {selectedNewUserFabric.description ? (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {selectedNewUserFabric.description}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  </div>
                                 </div>
                               ) : (
                                 <p className="text-xs text-muted-foreground">
-                                  {loadingFabrics ? "Loading fabrics..." : "Select fabric to preview image and rate."}
+                                  {loadingFabrics ? "Loading fabrics..." : "Select fabric to preview details."}
                                 </p>
                               )}
                             </div>
@@ -1458,25 +1525,37 @@ export default function UsersPage() {
           </SheetHeader>
 
           <div className="grid grid-cols-1 gap-3 px-4 pb-4">
-            <select
-              className="h-10 rounded-md border bg-background px-3"
-              value={measurementForm.serviceKey}
-              onChange={(e) =>
-                setMeasurementForm((prev) => ({
-                  ...prev,
-                  serviceKey: e.target.value,
-                  values: {},
-                  name: prev.name || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
-                }))
-              }
-            >
-              <option value="">Select stitching option</option>
-              {serviceOptions.map((service) => (
-                <option key={service.id} value={service.key}>
-                  {service.name} ({service.category})
-                </option>
-              ))}
-            </select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Stitching Service</label>
+              <div className="relative">
+                <Input
+                  placeholder="Search services..."
+                  value={serviceSearch}
+                  onChange={(e) => setServiceSearch(e.target.value)}
+                  className="mb-2"
+                />
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3"
+                  value={measurementForm.serviceKey}
+                  onChange={(e) => {
+                    setMeasurementForm((prev) => ({
+                      ...prev,
+                      serviceKey: e.target.value,
+                      values: {},
+                      name: prev.name || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
+                    }))
+                    setServiceSearch("") // Clear search after selection
+                  }}
+                >
+                  <option value="">Select stitching option</option>
+                  {filteredServices.map((service) => (
+                    <option key={service.id} value={service.key}>
+                      {service.name} ({service.category}) - Rs. {service.customerPrice}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <Input
               placeholder="Measurement profile name"
               value={measurementForm.name}
@@ -1587,20 +1666,32 @@ export default function UsersPage() {
 
                   {measurementForm.fabricMode === "WITH_SHOP_FABRIC" ? (
                     <div className="space-y-3">
-                      <select
-                        className="h-10 rounded-md border bg-background px-3"
-                        value={measurementForm.fabricOptionId}
-                        onChange={(e) => setMeasurementForm((prev) => ({ ...prev, fabricOptionId: e.target.value }))}
-                      >
-                        <option value="">Select fabric option</option>
-                        {fabricOptions
-                          .filter((item) => item.stockMeters > 0)
-                          .map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.name} ({item.clothType}) - Rs. {item.sellRatePerMeter}/m - Stock {item.stockMeters.toFixed(2)}m
-                            </option>
-                          ))}
-                      </select>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Select Fabric</label>
+                        <div className="relative">
+                          <Input
+                            placeholder="Search fabrics..."
+                            value={fabricSearch}
+                            onChange={(e) => setFabricSearch(e.target.value)}
+                            className="mb-2"
+                          />
+                          <select
+                            className="h-10 w-full rounded-md border bg-background px-3"
+                            value={measurementForm.fabricOptionId}
+                            onChange={(e) => {
+                              setMeasurementForm((prev) => ({ ...prev, fabricOptionId: e.target.value }))
+                              setFabricSearch("") // Clear search after selection
+                            }}
+                          >
+                            <option value="">Select fabric option</option>
+                            {filteredFabrics.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name} ({item.clothType}) - Rs. {item.sellRatePerMeter}/m - Stock {item.stockMeters.toFixed(2)}m
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                       <Input
                         type="number"
                         min={0.1}
@@ -1610,21 +1701,41 @@ export default function UsersPage() {
                         onChange={(e) => setMeasurementForm((prev) => ({ ...prev, fabricMeters: e.target.value }))}
                       />
                       {selectedMeasurementFabric ? (
-                        <div className="rounded-md border p-2 space-y-2">
-                          <p className="text-xs text-muted-foreground">
-                            Price: Rs. {selectedMeasurementFabric.sellRatePerMeter}/meter, Stock: {selectedMeasurementFabric.stockMeters.toFixed(2)}m
-                          </p>
-                          {selectedMeasurementFabric.image ? (
-                            <img
-                              src={selectedMeasurementFabric.image}
-                              alt={selectedMeasurementFabric.name}
-                              className="h-28 w-full rounded border object-cover"
-                            />
-                          ) : null}
+                        <div className="rounded-md border p-3 space-y-3">
+                          <div className="flex items-start gap-3">
+                            {selectedMeasurementFabric.image ? (
+                              <img
+                                src={selectedMeasurementFabric.image}
+                                alt={selectedMeasurementFabric.name}
+                                className="h-20 w-20 rounded border object-cover flex-shrink-0"
+                              />
+                            ) : (
+                              <div className="h-20 w-20 rounded border bg-muted flex-shrink-0 flex items-center justify-center">
+                                <span className="text-xs text-muted-foreground">No image</span>
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <h4 className="font-medium text-sm">{selectedMeasurementFabric.name}</h4>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Type: {selectedMeasurementFabric.clothType}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Price: Rs. {selectedMeasurementFabric.sellRatePerMeter}/meter
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Available Stock: {selectedMeasurementFabric.stockMeters.toFixed(2)}m
+                              </p>
+                              {selectedMeasurementFabric.description ? (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {selectedMeasurementFabric.description}
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground">
-                          {loadingFabrics ? "Loading fabrics..." : "Select fabric to preview image and rate."}
+                          {loadingFabrics ? "Loading fabrics..." : "Select fabric to preview details."}
                         </p>
                       )}
                     </div>

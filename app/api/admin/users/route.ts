@@ -4,12 +4,21 @@ import { requireRole } from "@/lib/api-auth"
 import { generateSystemPasswordHash } from "@/lib/auth-utils"
 import { normalizeIndianPhone, validateIndianMobile } from "@/lib/validation"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { response } = await requireRole("ADMIN")
     if (response) return response
 
+    const { searchParams } = new URL(request.url)
+    const role = searchParams.get("role")
+
+    const whereClause: any = {}
+    if (role) {
+      whereClause.role = role
+    }
+
     const users = await db.user.findMany({
+      where: whereClause,
       include: {
         tailorProfile: {
           select: {
@@ -27,12 +36,11 @@ export async function GET() {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
         phone: user.phone,
         dateOfBirth: user.dateOfBirth,
-        profileImage: user.profileImage,
-        createdAt: user.createdAt,
+        role: user.role,
         status: user.role === "TAILOR" ? (user.tailorProfile?.isActive ? "active" : "inactive") : "active",
+        createdAt: user.createdAt,
       }))
     )
   } catch (error) {

@@ -110,6 +110,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: "Unauthorized" })
   }
 
+  // Verify user exists in database
+  const userExists = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true }
+  })
+  
+  if (!userExists) {
+    return res.status(404).json({ error: "User not found" })
+  }
+
   if (req.method === "GET") {
     try {
       const user = await db.user.findUnique({
@@ -179,6 +189,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
   } catch (error) {
     console.error("[pages/account/cart-wishlist/patch]", error)
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
+      return res.status(404).json({ error: "User not found. Please log in again." })
+    }
     return res.status(500).json({ error: error instanceof Error ? error.message : "Failed to save cart and wishlist" })
   }
 }
