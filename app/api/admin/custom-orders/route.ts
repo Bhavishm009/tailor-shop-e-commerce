@@ -24,6 +24,63 @@ function asNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+export async function GET() {
+  try {
+    const { response } = await requireRole("ADMIN")
+    if (response) return response
+
+    const orders = await db.stitchingOrder.findMany({
+      include: {
+        customer: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        assignment: {
+          include: {
+            tailor: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    const normalizedOrders = orders.map((order) => ({
+      id: order.id,
+      source: "CUSTOM" as const,
+      orderNumber: `ST-${order.id.slice(-6).toUpperCase()}`,
+      customerName: order.customer.name,
+      customerEmail: order.customer.email,
+      serviceKey: order.serviceKey,
+      stitchingService: order.stitchingService,
+      clothSource: order.clothSource,
+      clothName: order.clothName,
+      clothPrice: order.clothPrice,
+      stitchingPrice: order.stitchingPrice,
+      totalAmount: order.price,
+      status: order.status,
+      assignedTailorId: order.assignment?.tailorId ?? null,
+      assignedTailorName: order.assignment?.tailor.name ?? null,
+      payoutAmount: order.assignment?.payoutAmount ?? null,
+      payoutStatus: order.assignment?.payoutStatus ?? null,
+      createdAt: order.createdAt,
+    }))
+
+    return NextResponse.json(normalizedOrders)
+  } catch (error) {
+    console.error("[admin/custom-orders/get]", error)
+    return NextResponse.json({ error: "Failed to fetch custom orders" }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { session, response } = await requireRole("ADMIN")
