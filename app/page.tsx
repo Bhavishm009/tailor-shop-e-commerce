@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/opengraph-image",
+        url: "/opengraph.png",
         width: 1200,
         height: 630,
         alt: "TailorHub custom stitching and ready-made fashion",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "TailorHub | Custom Stitching & Premium Ready-Made Clothing",
     description: "Book expert stitching and shop premium outfits with TailorHub.",
-    images: ["/twitter-image"],
+    images: ["/twitter-card.png"],
   },
 }
 
@@ -50,7 +50,7 @@ export default async function Home() {
     "@type": "Organization",
     name: "TailorHub",
     url: siteUrl,
-    logo: `${siteUrl}/icon-512x512.png`,
+    logo: `${siteUrl}/android-512x512.png`,
     sameAs: [],
   }
 

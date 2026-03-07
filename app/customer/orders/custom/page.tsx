@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { FeedbackToasts } from "@/components/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
 import { uploadFile, isValidImageFile } from "@/lib/file-upload"
+import { SearchableSelect } from "@/components/ui/searchable-select"
+import { PhoneInputWithContact } from "@/components/ui/phone-input-with-contact"
 
 type MeasurementOption = { id: string; name: string; isVerified?: boolean }
 type ServiceOption = { id: string; key: string; name: string; category: string; customerPrice: number }
@@ -110,6 +112,26 @@ export default function CustomStitchingPage() {
   const [addressCountry, setAddressCountry] = useState("India")
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  const serviceSelectOptions = useMemo(
+    () =>
+      serviceOptions.map((service) => ({
+        value: service.key,
+        label: `${service.name} - Rs. ${formatCurrency(service.customerPrice)}`,
+        searchText: `${service.name} ${service.category} ${service.key}`,
+      })),
+    [serviceOptions],
+  )
+
+  const measurementSelectOptions = useMemo(
+    () =>
+      measurementOptions.map((measurement) => ({
+        value: measurement.id,
+        label: `${measurement.name} ${measurement.isVerified ? "- Verified" : "- Suggested"}`,
+        searchText: `${measurement.name} ${measurement.isVerified ? "verified" : "suggested"}`,
+      })),
+    [measurementOptions],
+  )
 
   useEffect(() => {
     const loadMeta = async () => {
@@ -380,34 +402,28 @@ export default function CustomStitchingPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Stitching Service</label>
-                        <Select value={item.serviceKey} onValueChange={(value) => updateItem(item.clientId, { serviceKey: value })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select service" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {serviceOptions.map((service) => (
-                              <SelectItem key={service.key} value={service.key}>
-                                {service.name} - Rs. {formatCurrency(service.customerPrice)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          id={`customer-custom-order-service-${item.clientId}`}
+                          value={item.serviceKey}
+                          onValueChange={(value) => updateItem(item.clientId, { serviceKey: value })}
+                          options={serviceSelectOptions}
+                          placeholder="Select service"
+                          searchPlaceholder="Search services..."
+                          emptyLabel="No service found."
+                        />
                       </div>
 
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Measurement Profile</label>
-                        <Select value={item.measurementId} onValueChange={(value) => updateItem(item.clientId, { measurementId: value })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select saved measurement" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {measurementOptions.map((measurement) => (
-                              <SelectItem key={measurement.id} value={measurement.id}>
-                                {measurement.name} {measurement.isVerified ? "- Verified" : "- Suggested"}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          id={`customer-custom-order-measurement-${item.clientId}`}
+                          value={item.measurementId}
+                          onValueChange={(value) => updateItem(item.clientId, { measurementId: value })}
+                          options={measurementSelectOptions}
+                          placeholder="Select saved measurement"
+                          searchPlaceholder="Search measurements..."
+                          emptyLabel="No measurement found."
+                        />
                       </div>
 
                       <div className="space-y-2">
@@ -463,18 +479,19 @@ export default function CustomStitchingPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Select Fabric</label>
-                          <Select value={item.fabricOptionId} onValueChange={(value) => updateItem(item.clientId, { fabricOptionId: value })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select fabric" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {filteredFabricOptions.map((fabric) => (
-                                <SelectItem key={fabric.id} value={fabric.id}>
-                                  {fabric.name} ({fabric.clothType}) - Rs. {formatCurrency(fabric.sellRatePerMeter)}/meter - Stock {fabric.stockMeters.toFixed(2)}m
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <SearchableSelect
+                            id={`customer-custom-order-fabric-${item.clientId}`}
+                            value={item.fabricOptionId}
+                            onValueChange={(value) => updateItem(item.clientId, { fabricOptionId: value })}
+                            options={filteredFabricOptions.map((fabric) => ({
+                              value: fabric.id,
+                              label: `${fabric.name} (${fabric.clothType}) - Rs. ${formatCurrency(fabric.sellRatePerMeter)}/meter - Stock ${fabric.stockMeters.toFixed(2)}m`,
+                              searchText: `${fabric.name} ${fabric.clothType}`,
+                            }))}
+                            placeholder="Select fabric"
+                            searchPlaceholder="Search fabrics..."
+                            emptyLabel="No fabric found."
+                          />
                           {selectedFabric?.description ? (
                             <p className="text-xs text-muted-foreground">{selectedFabric.description}</p>
                           ) : null}
@@ -573,7 +590,7 @@ export default function CustomStitchingPage() {
               </div>
               <div className="space-y-2">
                 <label htmlFor="contact-phone" className="text-sm font-medium">Phone Number</label>
-                <Input id="contact-phone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="10-digit mobile number" />
+                <PhoneInputWithContact id="contact-phone" value={contactPhone} onChange={setContactPhone} placeholder="10-digit mobile number" />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <label htmlFor="address-line1" className="text-sm font-medium">Address Line</label>

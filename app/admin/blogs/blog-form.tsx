@@ -238,10 +238,19 @@ export function BlogForm({ blogId }: BlogFormProps) {
       <form onSubmit={onSubmit} className="space-y-6">
         <Card className="p-6 space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" required />
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category" />
+            <div className="space-y-1">
+              <label htmlFor="blog-title" className="text-sm font-medium">Title</label>
+              <Input id="blog-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" required />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="blog-category" className="text-sm font-medium">Category</label>
+              <Input id="blog-category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category" />
+            </div>
           </div>
-          <Input value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="Excerpt (recommended 140-160 chars)" />
+          <div className="space-y-1">
+            <label htmlFor="blog-excerpt" className="text-sm font-medium">Excerpt</label>
+            <Input id="blog-excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="Excerpt (recommended 140-160 chars)" />
+          </div>
           <BlogEditor value={contentHtml} onChange={setContentHtml} />
         </Card>
 
@@ -291,15 +300,30 @@ export function BlogForm({ blogId }: BlogFormProps) {
 
         <Card className="p-6 space-y-3">
           <h2 className="font-semibold">SEO</h2>
-          <Input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} placeholder="SEO title" />
-          <Input value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} placeholder="SEO description" />
-          <Input value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} placeholder="SEO keywords (comma separated)" />
+          <div className="space-y-1">
+            <label htmlFor="blog-seo-title" className="text-sm font-medium">SEO Title</label>
+            <Input id="blog-seo-title" value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} placeholder="SEO title" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="blog-seo-description" className="text-sm font-medium">SEO Description</label>
+            <Input id="blog-seo-description" value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} placeholder="SEO description" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="blog-seo-keywords" className="text-sm font-medium">SEO Keywords</label>
+            <Input id="blog-seo-keywords" value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} placeholder="SEO keywords (comma separated)" />
+          </div>
         </Card>
 
         <Card className="p-6 space-y-3">
           <h2 className="font-semibold">Open Graph / Social</h2>
-          <Input value={ogTitle} onChange={(e) => setOgTitle(e.target.value)} placeholder="OG title" />
-          <Input value={ogDescription} onChange={(e) => setOgDescription(e.target.value)} placeholder="OG description" />
+          <div className="space-y-1">
+            <label htmlFor="blog-og-title" className="text-sm font-medium">OG Title</label>
+            <Input id="blog-og-title" value={ogTitle} onChange={(e) => setOgTitle(e.target.value)} placeholder="OG title" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="blog-og-description" className="text-sm font-medium">OG Description</label>
+            <Input id="blog-og-description" value={ogDescription} onChange={(e) => setOgDescription(e.target.value)} placeholder="OG description" />
+          </div>
         </Card>
 
         <div className="flex items-center justify-center gap-3 mx-auto pt-2">

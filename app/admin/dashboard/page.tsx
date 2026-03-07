@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DatePicker } from "@/components/ui/date-picker"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import {
   BarChart,
@@ -42,6 +43,22 @@ type DashboardData = {
   charts: {
     revenueTrend: Array<{ month: string; revenue: number; orders: number }>
     orderStatusData: Array<{ name: string; value: number; fill: string }>
+    fabricStockByFabric: Array<{ fabricId: string; fabricName: string; clothType: string; stockMeters: number; inventoryValue: number }>
+    fabricRateByType: Array<{ fabricName: string; clothType: string; avgBuyRate: number; avgSellRate: number; marginPercent: number }>
+  }
+  filters: {
+    dateRange: string
+    customFrom: string
+    customTo: string
+    orderSource: string
+    orderStatus: string
+    fabricType: string
+    fabricStatus: string
+  }
+  filterOptions: {
+    orderStatus: string[]
+    fabricTypes: string[]
+    dateRanges: string[]
   }
 }
 
@@ -62,12 +79,30 @@ export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [dateRangeFilter, setDateRangeFilter] = useState("LAST_6_MONTHS")
+  const [customFromDate, setCustomFromDate] = useState("")
+  const [customToDate, setCustomToDate] = useState("")
+  const [orderSourceFilter, setOrderSourceFilter] = useState("ALL")
+  const [orderStatusFilter, setOrderStatusFilter] = useState("ALL")
+  const [fabricTypeFilter, setFabricTypeFilter] = useState("ALL")
+  const [fabricStatusFilter, setFabricStatusFilter] = useState("ALL")
 
   useEffect(() => {
     const loadDashboard = async () => {
-      setError("")
+        setLoading(true)
+        setError("")
       try {
-        const response = await fetch("/api/admin/dashboard", { cache: "no-store" })
+        const query = new URLSearchParams()
+        query.set("dateRange", dateRangeFilter)
+        if (dateRangeFilter === "CUSTOM") {
+          if (customFromDate) query.set("customFrom", customFromDate)
+          if (customToDate) query.set("customTo", customToDate)
+        }
+        query.set("orderSource", orderSourceFilter)
+        query.set("orderStatus", orderStatusFilter)
+        query.set("fabricType", fabricTypeFilter)
+        query.set("fabricStatus", fabricStatusFilter)
+        const response = await fetch(`/api/admin/dashboard?${query.toString()}`, { cache: "no-store" })
         if (!response.ok) {
           const payload = await response.json().catch(() => ({ error: "Failed to load dashboard data." }))
           setError(payload.error || "Failed to load dashboard data.")
@@ -82,7 +117,7 @@ export default function AdminDashboard() {
     }
 
     loadDashboard()
-  }, [])
+  }, [dateRangeFilter, customFromDate, customToDate, orderSourceFilter, orderStatusFilter, fabricTypeFilter, fabricStatusFilter])
 
   const metrics = useMemo(() => {
     if (!data) return []
@@ -120,6 +155,93 @@ export default function AdminDashboard() {
         <h1 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8">Admin Dashboard</h1>
 
         <FeedbackToasts error={error} />
+
+        <Card className="mb-6 p-4 md:mb-8">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+            <div className="space-y-1">
+              <label htmlFor="dashboard-date-range" className="text-xs font-medium text-muted-foreground">Date Range</label>
+              <select
+                id="dashboard-date-range"
+                className="h-10 w-full rounded-md border bg-background px-3"
+                value={dateRangeFilter}
+                onChange={(e) => setDateRangeFilter(e.target.value)}
+              >
+                <option value="ALL">All</option>
+                <option value="TODAY">Today</option>
+                <option value="YESTERDAY">Yesterday</option>
+                <option value="THIS_WEEK">This Week</option>
+                <option value="LAST_WEEK">Last Week</option>
+                <option value="THIS_MONTH">This Month</option>
+                <option value="LAST_MONTH">Last Month</option>
+                <option value="LAST_3_MONTHS">Last 3 Months</option>
+                <option value="LAST_6_MONTHS">Last 6 Months</option>
+                <option value="LAST_YEAR">Last Year</option>
+                <option value="CUSTOM">Custom</option>
+              </select>
+            </div>
+            {dateRangeFilter === "CUSTOM" ? (
+              <div className="col-span-1 space-y-1 md:col-span-2">
+                <label className="text-xs font-medium text-muted-foreground">Custom Date Range</label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <DatePicker value={customFromDate} onChange={setCustomFromDate} placeholder="From date" />
+                  <DatePicker value={customToDate} onChange={setCustomToDate} placeholder="To date" />
+                </div>
+              </div>
+            ) : null}
+            <div className="space-y-1">
+              <label htmlFor="dashboard-order-source" className="text-xs font-medium text-muted-foreground">Order Source</label>
+              <select
+                id="dashboard-order-source"
+                className="h-10 w-full rounded-md border bg-background px-3"
+                value={orderSourceFilter}
+                onChange={(e) => setOrderSourceFilter(e.target.value)}
+              >
+                <option value="ALL">All</option>
+                <option value="READY_MADE">Ready-Made</option>
+                <option value="CUSTOM">Custom Stitching</option>
+              </select>
+            </div>
+            <div className={`space-y-1 ${dateRangeFilter === "CUSTOM" ? "md:col-start-4" : ""}`}>
+              <label htmlFor="dashboard-order-status" className="text-xs font-medium text-muted-foreground">Order Status</label>
+              <select
+                id="dashboard-order-status"
+                className="h-10 w-full rounded-md border bg-background px-3"
+                value={orderStatusFilter}
+                onChange={(e) => setOrderStatusFilter(e.target.value)}
+              >
+                {(data?.filterOptions.orderStatus || ["ALL"]).map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="dashboard-fabric-type" className="text-xs font-medium text-muted-foreground">Fabric Type</label>
+              <select
+                id="dashboard-fabric-type"
+                className="h-10 w-full rounded-md border bg-background px-3"
+                value={fabricTypeFilter}
+                onChange={(e) => setFabricTypeFilter(e.target.value)}
+              >
+                {(data?.filterOptions.fabricTypes || ["ALL"]).map((fabricType) => (
+                  <option key={fabricType} value={fabricType}>{fabricType}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="dashboard-fabric-status" className="text-xs font-medium text-muted-foreground">Fabric Status</label>
+              <select
+                id="dashboard-fabric-status"
+                className="h-10 w-full rounded-md border bg-background px-3"
+                value={fabricStatusFilter}
+                onChange={(e) => setFabricStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+          </div>
+        </Card>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           {loading
@@ -250,6 +372,37 @@ export default function AdminDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </Card>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:mt-6 md:gap-6 lg:grid-cols-2">
+              <Card className="p-6">
+                <h2 className="text-lg font-bold mb-6">Fabric Stock (By Fabric)</h2>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={data?.charts.fabricStockByFabric || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="fabricName" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="stockMeters" fill="#f59e0b" name="Stock (m)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+
+              <Card className="p-6">
+                <h2 className="text-lg font-bold mb-6">Fabric Buy vs Sell Rates</h2>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={data?.charts.fabricRateByType || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="fabricName" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="avgBuyRate" stroke="#3b82f6" name="Avg Buy Rate" />
+                    <Line type="monotone" dataKey="avgSellRate" stroke="#10b981" name="Avg Sell Rate" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Card>
+            </div>
           </>
         )}
       </div>

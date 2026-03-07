@@ -208,11 +208,20 @@ export function NotificationsDropdown({ className }: Props) {
         setPushSubscribed(false)
         return
       }
-      await fetch("/api/notifications/push-subscription", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint: subscription.endpoint }),
-      })
+      const unsubscribeEndpoint = subscription.endpoint
+      if (userId) {
+        await fetch("/api/notifications/push-subscription", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: unsubscribeEndpoint }),
+        })
+      } else {
+        await fetch("/api/notifications/guest-subscription", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: unsubscribeEndpoint }),
+        })
+      }
       await subscription.unsubscribe()
       setPushSubscribed(false)
     } finally {
@@ -222,7 +231,11 @@ export function NotificationsDropdown({ className }: Props) {
 
   const syncSubscription = async () => {
     if (!("serviceWorker" in navigator)) return
-    const registration = await navigator.serviceWorker.getRegistration()
+    let registration = await navigator.serviceWorker.getRegistration()
+    if (!registration) {
+      await navigator.serviceWorker.register("/sw.js", { scope: "/" })
+      registration = await navigator.serviceWorker.ready
+    }
     if (!registration) return
 
     const vapidKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY
@@ -284,8 +297,8 @@ export function NotificationsDropdown({ className }: Props) {
       if (registration) {
         await registration.showNotification(item.title, {
           body: item.message,
-          icon: "/icon-192x192.png",
-          badge: "/icon-192x192.png",
+          icon: "/android-192x192.png",
+          badge: "/android-192x192.png",
           data: {
             url: item.link || "/",
           },

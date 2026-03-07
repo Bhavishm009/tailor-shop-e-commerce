@@ -90,7 +90,7 @@ export const metadata: Metadata = {
     alternateLocale: ["hi_IN", "mr_IN", "bn_IN", "ta_IN", "te_IN", "gu_IN", "kn_IN", "ml_IN", "pa_IN"],
     images: [
       {
-        url: "/opengraph-image",
+        url: "/opengraph.png",
         width: 1200,
         height: 630,
         alt: "TailorHub custom stitching and ready-made fashion",
@@ -102,7 +102,7 @@ export const metadata: Metadata = {
     title: "TailorHub | Custom Stitching & Premium Ready-Made Fashion",
     description:
       "Custom tailoring and ready-made fashion in one place. TailorHub helps you get the perfect fit with a seamless online experience.",
-    images: ["/twitter-image"],
+    images: ["/twitter-card.png"],
   },
   appleWebApp: {
     capable: true,
@@ -112,19 +112,28 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
+        url: "/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
       },
       {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
+        url: "/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
       },
       {
-        url: "/icon.svg",
-        type: "image/svg+xml",
+        url: "/favicon-48x48.png",
+        sizes: "48x48",
+        type: "image/png",
       },
     ],
-    apple: "/apple-icon.png",
+    shortcut: ["/favicon-32x32.png"],
+    apple: [
+      { url: "/apple-touch-icon-120x120.png", sizes: "120x120" },
+      { url: "/apple-touch-icon-152x152.png", sizes: "152x152" },
+      { url: "/apple-touch-icon-167x167.png", sizes: "167x167" },
+      { url: "/apple-touch-icon-180x180.png", sizes: "180x180" },
+    ],
   },
 }
 
@@ -148,7 +157,7 @@ export default async function RootLayout({
     "@type": "Organization",
     name: "TailorHub",
     url: siteUrl,
-    logo: `${siteUrl}/icon.svg`,
+    logo: `${siteUrl}/android-512x512.png`,
   }
   const websiteJsonLd = {
     "@context": "https://schema.org",

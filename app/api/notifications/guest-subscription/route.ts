@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
-import { deleteGuestSubscriptionsByVisitorDevice, upsertGuestPushSubscription } from "@/lib/guest-push-db"
+import {
+  deleteGuestSubscriptionsByEndpoints,
+  deleteGuestSubscriptionsByVisitorDevice,
+  upsertGuestPushSubscription,
+} from "@/lib/guest-push-db"
 
 export async function POST(request: Request) {
   try {
@@ -36,5 +40,25 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[notifications/guest-subscription/post]", error)
     return NextResponse.json({ error: "Failed to save guest push subscription" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const body = (await request.json().catch(() => ({}))) as {
+      endpoint?: string
+    }
+
+    const endpoint = body.endpoint?.trim()
+    if (!endpoint) {
+      return NextResponse.json({ error: "Endpoint is required" }, { status: 400 })
+    }
+
+    await deleteGuestSubscriptionsByEndpoints([endpoint])
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("[notifications/guest-subscription/delete]", error)
+    return NextResponse.json({ error: "Failed to remove guest push subscription" }, { status: 500 })
   }
 }

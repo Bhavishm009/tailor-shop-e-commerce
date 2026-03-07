@@ -7,6 +7,12 @@ import { buildPushUserAgent } from "@/lib/push-client-id"
 
 const PROMPT_DISMISSED_KEY = "tailorhub_notification_prompt_dismissed"
 
+function isValidVapidPublicKey(value: string | undefined) {
+  if (!value) return false
+  const trimmed = value.trim()
+  return /^[A-Za-z0-9\-_]+$/.test(trimmed) && trimmed.length >= 70
+}
+
 async function persistPushSubscription(payload: {
   endpoint: string
   keys?: { p256dh?: string; auth?: string }
@@ -48,7 +54,8 @@ export function NotificationPermissionPrompt() {
       const permission = await Notification.requestPermission()
       if (permission === "granted" && "serviceWorker" in navigator) {
         const vapidKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY
-        if (vapidKey && /^[A-Za-z0-9\-_]+$/.test(vapidKey) && vapidKey.length >= 70) {
+        if (isValidVapidPublicKey(vapidKey)) {
+          const safeVapidKey = vapidKey?.trim() || ""
           let registration = await navigator.serviceWorker.getRegistration()
           if (!registration) {
             await navigator.serviceWorker.register("/sw.js", { scope: "/" })
@@ -59,7 +66,7 @@ export function NotificationPermissionPrompt() {
             if (!subscription) {
               subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(vapidKey),
+                applicationServerKey: urlBase64ToUint8Array(safeVapidKey),
               })
             }
 
@@ -72,6 +79,8 @@ export function NotificationPermissionPrompt() {
               await persistPushSubscription(payload)
             }
           }
+        } else {
+          console.error("Invalid NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY")
         }
       }
 
@@ -94,10 +103,6 @@ export function NotificationPermissionPrompt() {
     const dismissed = window.localStorage.getItem(PROMPT_DISMISSED_KEY) === "1"
     if (Notification.permission === "default" && !dismissed) {
       setShowPrompt(true)
-      const timer = window.setTimeout(() => {
-        void askPermission(true)
-      }, 1200)
-      return () => window.clearTimeout(timer)
     }
   }, [askPermission])
 

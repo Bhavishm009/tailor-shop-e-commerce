@@ -337,12 +337,18 @@ export default function AdminStitchingServicesPage() {
 
       <Card className="p-4 md:p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search key/category/name" className="w-full lg:max-w-2xl" />
-          <select className="h-10 rounded-md border bg-background" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")}>
-            <option value="ALL">All Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
-          </select>
+          <div className="w-full max-w-2xl space-y-1">
+            <label htmlFor="service-search" className="text-sm font-medium">Search Services</label>
+            <Input id="service-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search key/category/name" className="w-full" />
+          </div>
+          <div className="min-w-40 space-y-1">
+            <label htmlFor="service-status-filter" className="text-sm font-medium">Status</label>
+            <select id="service-status-filter" className="h-10 w-full rounded-md border bg-background" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")}>
+              <option value="ALL">All Status</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
@@ -426,12 +432,30 @@ export default function AdminStitchingServicesPage() {
 
           <form onSubmit={onSubmit} className="space-y-4 px-4 pb-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <Input value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} placeholder="Category (e.g. Shirt)" required />
-              <Input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Service name" required />
-              <Input value={form.key} onChange={(e) => setForm((prev) => ({ ...prev, key: e.target.value }))} placeholder="Unique key" required />
-              <Input value={form.measurementType} onChange={(e) => setForm((prev) => ({ ...prev, measurementType: e.target.value.toUpperCase() }))} placeholder="Measurement type tag (e.g. SHIRT)" required />
-              <Input value={form.customerPrice} onChange={(e) => setForm((prev) => ({ ...prev, customerPrice: e.target.value }))} type="number" min="0" step="0.01" placeholder="Customer price" required />
-              <Input value={form.tailorRate} onChange={(e) => setForm((prev) => ({ ...prev, tailorRate: e.target.value }))} type="number" min="0" step="0.01" placeholder="Tailor rate" required />
+              <div className="space-y-1">
+                <label htmlFor="service-category" className="text-sm font-medium">Category</label>
+                <Input id="service-category" value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} placeholder="Category (e.g. Shirt)" required />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="service-name" className="text-sm font-medium">Service Name</label>
+                <Input id="service-name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Service name" required />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="service-key" className="text-sm font-medium">Unique Key</label>
+                <Input id="service-key" value={form.key} onChange={(e) => setForm((prev) => ({ ...prev, key: e.target.value }))} placeholder="Unique key" required />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="service-measurement-type" className="text-sm font-medium">Measurement Type Tag</label>
+                <Input id="service-measurement-type" value={form.measurementType} onChange={(e) => setForm((prev) => ({ ...prev, measurementType: e.target.value.toUpperCase() }))} placeholder="Measurement type tag (e.g. SHIRT)" required />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="service-customer-price" className="text-sm font-medium">Customer Price</label>
+                <Input id="service-customer-price" value={form.customerPrice} onChange={(e) => setForm((prev) => ({ ...prev, customerPrice: e.target.value }))} type="number" min="0" step="0.01" placeholder="Customer price" required />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="service-tailor-rate" className="text-sm font-medium">Tailor Rate</label>
+                <Input id="service-tailor-rate" value={form.tailorRate} onChange={(e) => setForm((prev) => ({ ...prev, tailorRate: e.target.value }))} type="number" min="0" step="0.01" placeholder="Tailor rate" required />
+              </div>
             </div>
 
             <div className="rounded-md border bg-card p-4 space-y-4">
@@ -581,12 +605,16 @@ export default function AdminStitchingServicesPage() {
                     }}
                   />
                 </div>
-                <Input
-                  className="bg-background"
-                  value={form.measurementGuideImage}
-                  onChange={(e) => setForm((prev) => ({ ...prev, measurementGuideImage: e.target.value }))}
-                  placeholder="Guide image URL"
-                />
+                <div className="space-y-1">
+                  <label htmlFor="service-guide-image-url" className="text-sm font-medium">Guide Image URL</label>
+                  <Input
+                    id="service-guide-image-url"
+                    className="bg-background"
+                    value={form.measurementGuideImage}
+                    onChange={(e) => setForm((prev) => ({ ...prev, measurementGuideImage: e.target.value }))}
+                    placeholder="Guide image URL"
+                  />
+                </div>
                 <MeasurementGuidePanel
                   measurementType={form.measurementType}
                   imageSrc={form.measurementGuideImage || null}

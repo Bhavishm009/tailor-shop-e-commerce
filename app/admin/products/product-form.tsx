@@ -273,27 +273,51 @@ export function ProductForm({ productId }: ProductFormProps) {
         <Card className="p-4 space-y-3">
           <h2 className="text-lg font-semibold">Basic Details</h2>
           <div className="grid md:grid-cols-2 gap-3">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Product Name" required />
-            <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price" type="number" min="0" required />
-            <Input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" type="number" min="0" required />
-            <select className="h-10 rounded-md border bg-background px-3" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubcategoryId("") }}>
+            <div className="space-y-1">
+              <label htmlFor="product-name" className="text-sm font-medium">Product Name</label>
+              <Input id="product-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Product Name" required />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="product-price" className="text-sm font-medium">Price</label>
+              <Input id="product-price" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price" type="number" min="0" required />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="product-stock" className="text-sm font-medium">Stock</label>
+              <Input id="product-stock" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" type="number" min="0" required />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="product-category" className="text-sm font-medium">Category</label>
+              <select id="product-category" className="h-10 w-full rounded-md border bg-background px-3" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubcategoryId("") }}>
               <option value="">Select Category</option>
               {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-            <select className="h-10 rounded-md border bg-background px-3" value={subcategoryId} onChange={(e) => setSubcategoryId(e.target.value)} disabled={!categoryId}>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="product-subcategory" className="text-sm font-medium">Subcategory</label>
+              <select id="product-subcategory" className="h-10 w-full rounded-md border bg-background px-3" value={subcategoryId} onChange={(e) => setSubcategoryId(e.target.value)} disabled={!categoryId}>
               <option value="">Select Subcategory</option>
               {subcategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-            <select className="h-10 rounded-md border bg-background px-3" value={clothTypeId} onChange={(e) => setClothTypeId(e.target.value)}>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="product-clothtype" className="text-sm font-medium">Cloth Type</label>
+              <select id="product-clothtype" className="h-10 w-full rounded-md border bg-background px-3" value={clothTypeId} onChange={(e) => setClothTypeId(e.target.value)}>
               <option value="">Select Cloth Type</option>
               {clothTypes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-            <select className="h-10 rounded-md border bg-background px-3" value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="product-material" className="text-sm font-medium">Material</label>
+              <select id="product-material" className="h-10 w-full rounded-md border bg-background px-3" value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
               <option value="">Select Material</option>
               {materials.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+              </select>
+            </div>
           </div>
-          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
+          <div className="space-y-1">
+            <label htmlFor="product-description" className="text-sm font-medium">Description</label>
+            <Textarea id="product-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
+          </div>
         </Card>
 
         <Card className="p-4 space-y-3">
@@ -331,12 +355,30 @@ export function ProductForm({ productId }: ProductFormProps) {
 
         <Card className="p-4 space-y-3">
           <h2 className="text-lg font-semibold">SEO</h2>
-          <Input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} placeholder="SEO Title" />
-          <Textarea value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} placeholder="SEO Description" />
-          <Input value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} placeholder="SEO Keywords (comma separated)" />
-          <Input value={canonicalUrl} onChange={(e) => setCanonicalUrl(e.target.value)} placeholder="Canonical URL" />
-          <Input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="Tags (comma separated)" />
-          <Input value={highlightsInput} onChange={(e) => setHighlightsInput(e.target.value)} placeholder="Highlights (comma separated)" />
+          <div className="space-y-1">
+            <label htmlFor="product-seo-title" className="text-sm font-medium">SEO Title</label>
+            <Input id="product-seo-title" value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} placeholder="SEO Title" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="product-seo-description" className="text-sm font-medium">SEO Description</label>
+            <Textarea id="product-seo-description" value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} placeholder="SEO Description" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="product-seo-keywords" className="text-sm font-medium">SEO Keywords</label>
+            <Input id="product-seo-keywords" value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} placeholder="SEO Keywords (comma separated)" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="product-canonical-url" className="text-sm font-medium">Canonical URL</label>
+            <Input id="product-canonical-url" value={canonicalUrl} onChange={(e) => setCanonicalUrl(e.target.value)} placeholder="Canonical URL" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="product-tags" className="text-sm font-medium">Tags</label>
+            <Input id="product-tags" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="Tags (comma separated)" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="product-highlights" className="text-sm font-medium">Highlights</label>
+            <Input id="product-highlights" value={highlightsInput} onChange={(e) => setHighlightsInput(e.target.value)} placeholder="Highlights (comma separated)" />
+          </div>
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             Active Product
@@ -345,7 +387,10 @@ export function ProductForm({ productId }: ProductFormProps) {
 
         <Card className="p-4 space-y-3">
           <h2 className="text-lg font-semibold">FAQs</h2>
-          <Input value={faqSearch} onChange={(e) => setFaqSearch(e.target.value)} placeholder="Search existing FAQs..." />
+          <div className="space-y-1">
+            <label htmlFor="product-faq-search" className="text-sm font-medium">Search Existing FAQs</label>
+            <Input id="product-faq-search" value={faqSearch} onChange={(e) => setFaqSearch(e.target.value)} placeholder="Search existing FAQs..." />
+          </div>
           <div className="grid md:grid-cols-2 gap-3">
             <div className="max-h-56 overflow-y-auto rounded-md border p-2 space-y-2">
               <p className="text-xs text-muted-foreground">Existing FAQs</p>
@@ -374,8 +419,14 @@ export function ProductForm({ productId }: ProductFormProps) {
           </div>
           <div className="rounded-md border p-3 space-y-2">
             <p className="text-sm font-medium">Create New FAQ</p>
-            <Input value={newFaqQuestion} onChange={(e) => setNewFaqQuestion(e.target.value)} placeholder="Question" />
-            <Textarea value={newFaqAnswer} onChange={(e) => setNewFaqAnswer(e.target.value)} placeholder="Answer" />
+            <div className="space-y-1">
+              <label htmlFor="product-new-faq-question" className="text-sm font-medium">Question</label>
+              <Input id="product-new-faq-question" value={newFaqQuestion} onChange={(e) => setNewFaqQuestion(e.target.value)} placeholder="Question" />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="product-new-faq-answer" className="text-sm font-medium">Answer</label>
+              <Textarea id="product-new-faq-answer" value={newFaqAnswer} onChange={(e) => setNewFaqAnswer(e.target.value)} placeholder="Answer" />
+            </div>
             <Button type="button" onClick={createFaqAndAdd} disabled={creatingFaq || !newFaqQuestion.trim() || !newFaqAnswer.trim()}>
               {creatingFaq ? <><Spinner className="mr-2" />Creating...</> : "Create & Add"}
             </Button>

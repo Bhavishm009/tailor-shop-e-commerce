@@ -21,11 +21,7 @@ function Textarea({ className, id, label, hideLabel = false, placeholder, ...pro
 
   return (
     <div className="relative">
-      {autoLabel ? (
-        <Label htmlFor={resolvedId} className="bg-background absolute -top-2 left-2 z-10 px-1 text-[10px] text-muted-foreground">
-          {autoLabel}
-        </Label>
-      ) : null}
+   
       <textarea
         id={resolvedId}
         data-slot="textarea"

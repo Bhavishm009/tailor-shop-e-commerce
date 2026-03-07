@@ -110,24 +110,36 @@ export default function AdminNotificationsPage() {
               <Badge variant="outline">Admin</Badge>
             </div>
             <form onSubmit={onSendBroadcast} className="space-y-3">
-              <Input
-                placeholder="Notification title"
-                value={broadcast.title}
-                onChange={(e) => setBroadcast((prev) => ({ ...prev, title: e.target.value }))}
-                required
-              />
-              <Textarea
-                placeholder="Notification message"
-                value={broadcast.message}
-                onChange={(e) => setBroadcast((prev) => ({ ...prev, message: e.target.value }))}
-                rows={4}
-                required
-              />
-              <Input
-                placeholder="Optional link (e.g. /products)"
-                value={broadcast.link}
-                onChange={(e) => setBroadcast((prev) => ({ ...prev, link: e.target.value }))}
-              />
+              <div className="space-y-1">
+                <label htmlFor="broadcast-title" className="text-sm font-medium">Title</label>
+                <Input
+                  id="broadcast-title"
+                  placeholder="Notification title"
+                  value={broadcast.title}
+                  onChange={(e) => setBroadcast((prev) => ({ ...prev, title: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="broadcast-message" className="text-sm font-medium">Message</label>
+                <Textarea
+                  id="broadcast-message"
+                  placeholder="Notification message"
+                  value={broadcast.message}
+                  onChange={(e) => setBroadcast((prev) => ({ ...prev, message: e.target.value }))}
+                  rows={4}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="broadcast-link" className="text-sm font-medium">Link (Optional)</label>
+                <Input
+                  id="broadcast-link"
+                  placeholder="Optional link (e.g. /products)"
+                  value={broadcast.link}
+                  onChange={(e) => setBroadcast((prev) => ({ ...prev, link: e.target.value }))}
+                />
+              </div>
               <Button type="submit" size="lg" className="min-w-40" disabled={loading || !broadcast.title.trim() || !broadcast.message.trim()}>
                 {loading ? <><Spinner className="mr-2" />Sending...</> : "Send To All"}
               </Button>

@@ -95,28 +95,38 @@ export default function ProductMastersPage() {
       <Card className="p-4 space-y-3">
         <h2 className="text-lg font-semibold">Add Master Value</h2>
         <div className="grid md:grid-cols-4 gap-3">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
-          <select className="h-10 rounded-md border bg-background px-3" value={type} onChange={(e) => setType(e.target.value as ProductMasterType)}>
-            <option value="CATEGORY">CATEGORY</option>
-            <option value="SUBCATEGORY">SUBCATEGORY</option>
-            <option value="CLOTH_TYPE">CLOTH_TYPE</option>
-            <option value="MATERIAL">MATERIAL</option>
-            <option value="SIZE">SIZE</option>
-            <option value="COLOR">COLOR</option>
-          </select>
-          <select
-            className="h-10 rounded-md border bg-background px-3"
-            value={parentId}
-            onChange={(e) => setParentId(e.target.value)}
-            disabled={type !== "SUBCATEGORY"}
-          >
-            <option value="">Parent Category</option>
-            {categories.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-1">
+            <label htmlFor="master-name" className="text-sm font-medium">Name</label>
+            <Input id="master-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="master-type" className="text-sm font-medium">Type</label>
+            <select id="master-type" className="h-10 w-full rounded-md border bg-background px-3" value={type} onChange={(e) => setType(e.target.value as ProductMasterType)}>
+              <option value="CATEGORY">CATEGORY</option>
+              <option value="SUBCATEGORY">SUBCATEGORY</option>
+              <option value="CLOTH_TYPE">CLOTH_TYPE</option>
+              <option value="MATERIAL">MATERIAL</option>
+              <option value="SIZE">SIZE</option>
+              <option value="COLOR">COLOR</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="master-parent-category" className="text-sm font-medium">Parent Category</label>
+            <select
+              id="master-parent-category"
+              className="h-10 w-full rounded-md border bg-background px-3"
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+              disabled={type !== "SUBCATEGORY"}
+            >
+              <option value="">Parent Category</option>
+              {categories.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <Button type="button" onClick={create} disabled={creating || loading || !name.trim()}>
             {creating ? "Adding..." : "Add"}
           </Button>

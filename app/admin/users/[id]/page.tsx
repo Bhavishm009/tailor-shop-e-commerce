@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { MeasurementGuidePanel } from "@/components/measurement-guide-panel"
+import { ContactActions } from "@/components/contact-actions"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { ChevronLeft } from "lucide-react"
 
 type UserDetail = {
@@ -104,6 +106,15 @@ export default function AdminUserDetailPage() {
   const [measurementForm, setMeasurementForm] = useState(createMeasurementForm)
   const selectedService = services.find((service) => service.key === measurementForm.serviceKey)
   const selectedFields = selectedService?.measurementFields || []
+  const serviceSelectOptions = useMemo(
+    () =>
+      services.map((service) => ({
+        value: service.key,
+        label: `${service.name} (${service.category})`,
+        searchText: `${service.name} ${service.category} ${service.key}`,
+      })),
+    [services],
+  )
 
   const canAddMeasurement =
     user?.role === "CUSTOMER" &&
@@ -247,6 +258,7 @@ export default function AdminUserDetailPage() {
           <Card className="p-3">
             <p className="text-xs text-muted-foreground">Phone</p>
             <p className="font-medium">{user.phone || "-"}</p>
+            <ContactActions phone={user.phone} name={user.name} whatsappMessage={`Hello ${user.name}, sharing your account details.`} className="mt-2 flex items-center gap-2" />
           </Card>
           <Card className="p-3">
             <p className="text-xs text-muted-foreground">DOB</p>
@@ -310,26 +322,30 @@ export default function AdminUserDetailPage() {
         {user.role === "CUSTOMER" ? (
           <div className="space-y-3 rounded-md border p-3">
             <p className="text-sm font-medium">Add Verified Measurement</p>
-            <select
-              className="h-10 rounded-md border bg-background px-3"
-              value={measurementForm.serviceKey}
-              onChange={(e) =>
-                setMeasurementForm((prev) => ({
-                  ...prev,
-                  serviceKey: e.target.value,
-                  values: {},
-                  name: prev.name || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
-                }))
-              }
-            >
-              <option value="">Select stitching option</option>
-              {services.map((service) => (
-                <option key={service.id} value={service.key}>
-                  {service.name} ({service.category})
-                </option>
-              ))}
-            </select>
-            <Input placeholder="Profile name" value={measurementForm.name} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <div className="space-y-1">
+              <label htmlFor="user-detail-measurement-service" className="text-sm font-medium">Stitching Service</label>
+              <SearchableSelect
+                id="user-detail-measurement-service"
+                value={measurementForm.serviceKey}
+                onValueChange={(value) => {
+                  const selected = services.find((service) => service.key === value)
+                  setMeasurementForm((prev) => ({
+                    ...prev,
+                    serviceKey: value,
+                    values: {},
+                    name: prev.name || `${selected?.name || "Measurement"} - Admin Verified`,
+                  }))
+                }}
+                options={serviceSelectOptions}
+                placeholder="Select stitching option"
+                searchPlaceholder="Search services..."
+                emptyLabel="No stitching service found."
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="user-detail-measurement-profile-name" className="text-sm font-medium">Profile Name</label>
+              <Input id="user-detail-measurement-profile-name" placeholder="Profile name" value={measurementForm.name} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, name: e.target.value }))} />
+            </div>
             {selectedFields.length > 0 ? (
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -367,7 +383,10 @@ export default function AdminUserDetailPage() {
             ) : (
               <p className="text-xs text-muted-foreground">Select stitching option to load measurement fields.</p>
             )}
-            <Input placeholder="Notes" value={measurementForm.notes} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, notes: e.target.value }))} />
+            <div className="space-y-1">
+              <label htmlFor="user-detail-measurement-notes" className="text-sm font-medium">Notes</label>
+              <Input id="user-detail-measurement-notes" placeholder="Notes" value={measurementForm.notes} onChange={(e) => setMeasurementForm((prev) => ({ ...prev, notes: e.target.value }))} />
+            </div>
             <div className="flex justify-end">
               <Button type="button" onClick={addVerifiedMeasurement} disabled={!canAddMeasurement}>
                 {savingMeasurement ? "Saving..." : "Add Verified Measurement"}

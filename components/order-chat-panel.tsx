@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -73,14 +73,18 @@ export function OrderChatPanel({ orderId, role, title = "Order Chat & Complaint"
     [messages],
   )
 
-  const load = async () => {
-    setLoading(true)
-    setError("")
+  const load = useCallback(async (background = false) => {
+    if (!background) {
+      setLoading(true)
+      setError("")
+    }
     try {
       const response = await fetch(`/api/orders/${orderId}/chat`, { cache: "no-store" })
       if (!response.ok) {
-        const payload = (await response.json().catch(() => ({ error: "Failed to load chat." }))) as { error?: string }
-        setError(payload.error || "Failed to load chat.")
+        if (!background) {
+          const payload = (await response.json().catch(() => ({ error: "Failed to load chat." }))) as { error?: string }
+          setError(payload.error || "Failed to load chat.")
+        }
         return
       }
       const payload = (await response.json()) as {
@@ -98,14 +102,30 @@ export function OrderChatPanel({ orderId, role, title = "Order Chat & Complaint"
         }
         return next
       })
+    } catch {
+      if (!background) {
+        setError("Failed to load chat.")
+      }
     } finally {
-      setLoading(false)
+      if (!background) {
+        setLoading(false)
+      }
     }
-  }
+  }, [orderId])
 
   useEffect(() => {
     void load()
-  }, [orderId])
+  }, [load])
+
+  useEffect(() => {
+    if (!orderId) return
+    const interval = window.setInterval(() => {
+      void load(true)
+    }, 15000)
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [orderId, load])
 
   useEffect(() => {
     if (!socket || !orderId) return

@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ChevronLeft, Download } from "lucide-react"
 import { FeedbackToasts } from "@/components/admin/feedback-toasts"
 import { OrderChatPanel } from "@/components/order-chat-panel"
+import { ContactActions } from "@/components/contact-actions"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 
 type AdminOrderDetail = {
   id: string
@@ -147,6 +149,15 @@ export default function AdminCustomOrderDetailPage() {
   const [tailorPaidAmount, setTailorPaidAmount] = useState(0)
 
   const code = useMemo(() => (order ? orderCode(order.id) : ""), [order])
+  const tailorSelectOptions = useMemo(
+    () =>
+      tailors.map((tailor) => ({
+        value: tailor.id,
+        label: `${tailor.name} (${tailor.activeOrders} active)`,
+        searchText: `${tailor.name} ${tailor.email} ${tailor.specializations}`,
+      })),
+    [tailors],
+  )
   const measurementItems = useMemo(() => getMeasurementItems(order), [order])
   const tailorPayout = Number(order?.assignment?.payoutAmount || 0)
   const payoutPaid = Math.min(tailorPayout, tailorPaidAmount)
@@ -215,7 +226,7 @@ export default function AdminCustomOrderDetailPage() {
 
   const getLogoDataUrl = async () => {
     try {
-      const logoResponse = await fetch("/icon-192x192.png")
+      const logoResponse = await fetch("/android-192x192.png")
       if (!logoResponse.ok) return ""
       const logoBlob = await logoResponse.blob()
       return await blobToDataUrl(logoBlob)
@@ -500,17 +511,15 @@ export default function AdminCustomOrderDetailPage() {
           </p>
           <div className="space-y-2">
             <label className="text-sm font-medium">Select Tailor</label>
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            <SearchableSelect
+              id="custom-order-assign-tailor"
               value={selectedTailor}
-              onChange={(event) => setSelectedTailor(event.target.value)}
-            >
-              {tailors.map((tailor) => (
-                <option key={tailor.id} value={tailor.id}>
-                  {tailor.name} ({tailor.activeOrders} active)
-                </option>
-              ))}
-            </select>
+              onValueChange={setSelectedTailor}
+              options={tailorSelectOptions}
+              placeholder="Select tailor"
+              searchPlaceholder="Search tailors..."
+              emptyLabel="No tailor found."
+            />
           </div>
           <Button onClick={onAssign} disabled={!selectedTailor || saving || order.status !== "PENDING"}>
             {saving ? "Assigning..." : order.status === "PENDING" ? "Assign Tailor" : "Already Assigned"}
@@ -545,6 +554,11 @@ export default function AdminCustomOrderDetailPage() {
           <h2 className="text-lg font-semibold">Contact & Address</h2>
           <p className="text-sm"><span className="text-muted-foreground">Contact Name:</span> {order.contactName || "-"}</p>
           <p className="text-sm"><span className="text-muted-foreground">Contact Phone:</span> {order.contactPhone || "-"}</p>
+          <ContactActions
+            phone={order.contactPhone || order.customer.phone}
+            name={order.contactName || order.customer.name}
+            whatsappMessage={`Hello ${order.contactName || order.customer.name}, regarding order ${code}.`}
+          />
           <p className="text-sm"><span className="text-muted-foreground">Address:</span> {formatAddress(order) || "-"}</p>
           {order.notes ? <p className="text-sm"><span className="text-muted-foreground">Notes:</span> {order.notes}</p> : null}
         </Card>

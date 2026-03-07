@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PhoneInputWithContact } from "@/components/ui/phone-input-with-contact"
 import { Progress } from "@/components/ui/progress"
 import { FeedbackToasts } from "@/components/feedback-toasts"
 import { Spinner } from "@/components/ui/spinner"
@@ -422,7 +423,7 @@ export function AccountProfilePage({ title }: AccountProfilePageProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" required />
             <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" required />
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" />
+            <PhoneInputWithContact value={phone} onChange={setPhone} placeholder="Phone number" />
           </div>
           {!isPhoneValid ? <p className="text-xs text-red-600">Enter a valid Indian mobile number</p> : null}
 

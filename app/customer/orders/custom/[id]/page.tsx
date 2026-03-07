@@ -163,7 +163,7 @@ export default function CustomerCustomOrderDetailPage() {
       let y = 16
 
       try {
-        const logoResponse = await fetch("/icon-192x192.png")
+        const logoResponse = await fetch("/android-192x192.png")
         if (logoResponse.ok) {
           const logoBlob = await logoResponse.blob()
           const logoData = await blobToDataUrl(logoBlob)

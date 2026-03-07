@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PhoneInputWithContact } from "@/components/ui/phone-input-with-contact"
 import { Badge } from "@/components/ui/badge"
 import { DatePicker } from "@/components/ui/date-picker"
 import { ResponsiveFilterModal } from "@/components/ui/responsive-filter-modal"
@@ -29,6 +30,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { MeasurementGuidePanel } from "@/components/measurement-guide-panel"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { validateEmail, validateIndianMobile } from "@/lib/validation"
 import { toast } from "sonner"
 import type { ClothType } from "@prisma/client"
@@ -180,29 +182,28 @@ export default function UsersPage() {
   const [measurementTargetUser, setMeasurementTargetUser] = useState<{ id: string; name: string } | null>(null)
   const [measurementForm, setMeasurementForm] = useState(createInitialMeasurementForm)
   const [newUser, setNewUser] = useState(createInitialUserForm)
-  const [serviceSearch, setServiceSearch] = useState("")
-  const [fabricSearch, setFabricSearch] = useState("")
 
-  // Filtered options for searchable dropdowns
-  const filteredServices = useMemo(() => {
-    if (!serviceSearch.trim()) return serviceOptions
-    const term = serviceSearch.toLowerCase()
-    return serviceOptions.filter(service => 
-      service.name.toLowerCase().includes(term) || 
-      service.category.toLowerCase().includes(term)
-    )
-  }, [serviceOptions, serviceSearch])
+  const stitchingServiceSelectOptions = useMemo(
+    () =>
+      serviceOptions.map((service) => ({
+        value: service.key,
+        label: `${service.name} (${service.category}) - Rs. ${service.customerPrice}`,
+        searchText: `${service.name} ${service.category} ${service.key}`,
+      })),
+    [serviceOptions],
+  )
 
-  const filteredFabrics = useMemo(() => {
-    if (!fabricSearch.trim()) return fabricOptions.filter(item => item.stockMeters > 0)
-    const term = fabricSearch.toLowerCase()
-    return fabricOptions.filter(item => 
-      item.stockMeters > 0 && (
-        item.name.toLowerCase().includes(term) || 
-        item.clothType.toLowerCase().includes(term)
-      )
-    )
-  }, [fabricOptions, fabricSearch])
+  const fabricSelectOptions = useMemo(
+    () =>
+      fabricOptions
+        .filter((item) => item.stockMeters > 0)
+        .map((item) => ({
+          value: item.id,
+          label: `${item.name}  - Rs. ${item.sellRatePerMeter}/m - Stock ${item.stockMeters.toFixed(2)}m`,
+          searchText: `${item.name} ${item.clothType}`,
+        })),
+    [fabricOptions],
+  )
 
   const isNewUserNameValid = newUser.name.trim().length >= 2
   const isNewUserEmailValid = validateEmail(newUser.email)
@@ -1113,44 +1114,66 @@ export default function UsersPage() {
           </SheetHeader>
 
           <div className="grid grid-cols-1 gap-3 px-4 pb-4">
-            <Input
-              placeholder="Full name"
-              value={newUser.name}
-              onChange={(e) => setNewUser((prev) => ({ ...prev, name: e.target.value }))}
-            />
+            <div className="space-y-1">
+              <label htmlFor="add-user-name" className="text-sm font-medium">Full Name</label>
+              <Input
+                id="add-user-name"
+                placeholder="Full name"
+                value={newUser.name}
+                onChange={(e) => setNewUser((prev) => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
             {!isNewUserNameValid && (newUser.name || newUserFormSubmitted) ? <p className="text-xs text-red-600">Name is too short</p> : null}
-            <Input
-              type="email"
-              placeholder="Email"
-              value={newUser.email}
-              onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
-            />
+            <div className="space-y-1">
+              <label htmlFor="add-user-email" className="text-sm font-medium">Email</label>
+              <Input
+                id="add-user-email"
+                type="email"
+                placeholder="Email"
+                value={newUser.email}
+                onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
             {!isNewUserEmailValid && (newUser.email || newUserFormSubmitted) ? <p className="text-xs text-red-600">Invalid email</p> : null}
-            <Input
-              type="tel"
-              placeholder="Indian mobile (e.g. 9876543210)"
-              value={newUser.phone}
-              onChange={(e) => setNewUser((prev) => ({ ...prev, phone: e.target.value }))}
-            />
+            <div className="space-y-1">
+              <label htmlFor="add-user-phone" className="text-sm font-medium">Phone</label>
+              <PhoneInputWithContact
+                id="add-user-phone"
+                value={newUser.phone}
+                placeholder="Indian mobile (e.g. 9876543210)"
+                onChange={(phone) => setNewUser((prev) => ({ ...prev, phone }))}
+                onContactPicked={({ name }) => {
+                  if (!name) return
+                  setNewUser((prev) => (prev.name.trim() ? prev : { ...prev, name }))
+                }}
+              />
+            </div>
             {!isNewUserPhoneValid && (newUser.phone || newUserFormSubmitted) ? (
               <p className="text-xs text-red-600">Enter valid Indian mobile (starts with 6-9)</p>
             ) : null}
-            <select
-              className="h-10 rounded-md border bg-background px-3"
-              value={newUser.role}
-              onChange={(e) =>
-                setNewUser((prev) => ({ ...prev, role: e.target.value as "ADMIN" | "TAILOR" | "CUSTOMER" }))
-              }
-            >
-              <option value="CUSTOMER">Customer</option>
-              <option value="TAILOR">Tailor</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-            <DatePicker
-              value={newUser.dateOfBirth}
-              onChange={(value) => setNewUser((prev) => ({ ...prev, dateOfBirth: value }))}
-              placeholder="Date of birth"
-            />
+            <div className="space-y-1">
+              <label htmlFor="add-user-role" className="text-sm font-medium">Role</label>
+              <select
+                id="add-user-role"
+                className="h-10 rounded-md border bg-background  w-full"
+                value={newUser.role}
+                onChange={(e) =>
+                  setNewUser((prev) => ({ ...prev, role: e.target.value as "ADMIN" | "TAILOR" | "CUSTOMER" }))
+                }
+              >
+                <option value="CUSTOMER">Customer</option>
+                <option value="TAILOR">Tailor</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Date Of Birth</label>
+              <DatePicker
+                value={newUser.dateOfBirth}
+                onChange={(value) => setNewUser((prev) => ({ ...prev, dateOfBirth: value }))}
+                placeholder="Date of birth"
+              />
+            </div>
             {!isNewUserDobValid && newUserFormSubmitted ? <p className="text-xs text-red-600">Date of birth is required</p> : null}
 
             {!newUser.addAddress ? (
@@ -1195,24 +1218,40 @@ export default function UsersPage() {
                     </Button>
                   </div>
                 </div>
-                <Input placeholder="Street" value={newUser.street} onChange={(e) => setNewUser((prev) => ({ ...prev, street: e.target.value }))} />
+                <div className="space-y-1">
+                  <label htmlFor="add-user-street" className="text-sm font-medium">Street</label>
+                  <Input id="add-user-street" placeholder="Street" value={newUser.street} onChange={(e) => setNewUser((prev) => ({ ...prev, street: e.target.value }))} />
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input placeholder="City" value={newUser.city} onChange={(e) => setNewUser((prev) => ({ ...prev, city: e.target.value }))} />
-                  <Input placeholder="State" value={newUser.state} onChange={(e) => setNewUser((prev) => ({ ...prev, state: e.target.value }))} />
-                  <Input
-                    placeholder="PIN code"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={newUser.postalCode}
-                    onChange={(e) => {
-                      const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6)
-                      setNewUser((prev) => ({ ...prev, postalCode: digitsOnly }))
-                      if (digitsOnly.length === 6) {
-                        void updateAddressFromPostalCode(digitsOnly)
-                      }
-                    }}
-                  />
-                  <Input placeholder="Country" value={newUser.country} onChange={(e) => setNewUser((prev) => ({ ...prev, country: e.target.value }))} />
+                  <div className="space-y-1">
+                    <label htmlFor="add-user-city" className="text-sm font-medium">City</label>
+                    <Input id="add-user-city" placeholder="City" value={newUser.city} onChange={(e) => setNewUser((prev) => ({ ...prev, city: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="add-user-state" className="text-sm font-medium">State</label>
+                    <Input id="add-user-state" placeholder="State" value={newUser.state} onChange={(e) => setNewUser((prev) => ({ ...prev, state: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="add-user-postal" className="text-sm font-medium">PIN Code</label>
+                    <Input
+                      id="add-user-postal"
+                      placeholder="PIN code"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={newUser.postalCode}
+                      onChange={(e) => {
+                        const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6)
+                        setNewUser((prev) => ({ ...prev, postalCode: digitsOnly }))
+                        if (digitsOnly.length === 6) {
+                          void updateAddressFromPostalCode(digitsOnly)
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="add-user-country" className="text-sm font-medium">Country</label>
+                    <Input id="add-user-country" placeholder="Country" value={newUser.country} onChange={(e) => setNewUser((prev) => ({ ...prev, country: e.target.value }))} />
+                  </div>
                 </div>
                 {!isNewUserStreetValid && newUserFormSubmitted ? <p className="text-xs text-red-600">Street is required</p> : null}
                 {!isNewUserCityValid && newUserFormSubmitted ? <p className="text-xs text-red-600">City is required</p> : null}
@@ -1265,42 +1304,36 @@ export default function UsersPage() {
                       </Button>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Stitching Service</label>
-                      <div className="relative">
-                        <Input
-                          placeholder="Search services..."
-                          value={serviceSearch}
-                          onChange={(e) => setServiceSearch(e.target.value)}
-                          className="mb-2"
-                        />
-                        <select
-                          className="h-10 w-full rounded-md border bg-background px-3"
-                          value={newUser.measurementServiceKey}
-                          onChange={(e) => {
-                            setNewUser((prev) => ({
-                              ...prev,
-                              measurementServiceKey: e.target.value,
-                              measurementValues: {},
-                              measurementName: prev.measurementName || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
-                            }))
-                            setServiceSearch("") // Clear search after selection
-                          }}
-                        >
-                          <option value="">Select stitching option</option>
-                          {filteredServices.map((service) => (
-                            <option key={service.id} value={service.key}>
-                              {service.name} ({service.category}) - Rs. {service.customerPrice}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <label htmlFor="add-user-measurement-service" className="text-sm font-medium">Stitching Service</label>
+                      <SearchableSelect
+                        id="add-user-measurement-service"
+                        value={newUser.measurementServiceKey}
+                        onValueChange={(value) => {
+                          const selected = serviceOptions.find((service) => service.key === value)
+                          setNewUser((prev) => ({
+                            ...prev,
+                            measurementServiceKey: value,
+                            measurementValues: {},
+                            measurementName: prev.measurementName || `${selected?.name || "Measurement"} - Admin Verified`,
+                          }))
+                        }}
+                        options={stitchingServiceSelectOptions}
+                        placeholder="Select stitching option"
+                        searchPlaceholder="Search services..."
+                        emptyLabel="No stitching service found."
+                        disabled={loadingServices}
+                      />
                     </div>
                     {!newUser.measurementServiceKey && newUserFormSubmitted ? <p className="text-xs text-red-600">Select stitching option for measurement</p> : null}
-                    <Input
-                      placeholder="Measurement profile name"
-                      value={newUser.measurementName}
-                      onChange={(e) => setNewUser((prev) => ({ ...prev, measurementName: e.target.value }))}
-                    />
+                    <div className="space-y-1">
+                      <label htmlFor="add-user-measurement-name" className="text-sm font-medium">Measurement Profile Name</label>
+                      <Input
+                        id="add-user-measurement-name"
+                        placeholder="Measurement profile name"
+                        value={newUser.measurementName}
+                        onChange={(e) => setNewUser((prev) => ({ ...prev, measurementName: e.target.value }))}
+                      />
+                    </div>
                     {!newUser.measurementName.trim() && newUserFormSubmitted ? <p className="text-xs text-red-600">Measurement profile name is required</p> : null}
 
                     {selectedNewUserMeasurementFields.length > 0 ? (
@@ -1336,11 +1369,15 @@ export default function UsersPage() {
                       </p>
                     )}
 
-                    <Input
-                      placeholder="Measurement notes"
-                      value={newUser.measurementNotes}
-                      onChange={(e) => setNewUser((prev) => ({ ...prev, measurementNotes: e.target.value }))}
-                    />
+                    <div className="space-y-1">
+                      <label htmlFor="add-user-measurement-notes" className="text-sm font-medium">Measurement Notes</label>
+                      <Input
+                        id="add-user-measurement-notes"
+                        placeholder="Measurement notes"
+                        value={newUser.measurementNotes}
+                        onChange={(e) => setNewUser((prev) => ({ ...prev, measurementNotes: e.target.value }))}
+                      />
+                    </div>
                     <div className="space-y-3 rounded-md border p-3">
                       <label className="flex items-center gap-2 text-sm">
                         <input
@@ -1353,87 +1390,94 @@ export default function UsersPage() {
                       {newUser.bookOrderAfterMeasurement ? (
                         <div className="space-y-3">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <Input
-                              type="number"
-                              min={1}
-                              placeholder="Quantity"
-                              value={newUser.orderQuantity}
-                              onChange={(e) => setNewUser((prev) => ({ ...prev, orderQuantity: e.target.value }))}
-                            />
-                            <select
-                              className="h-10 rounded-md border bg-background px-3"
-                              value={newUser.orderFabricMode}
-                              onChange={(e) =>
-                                setNewUser((prev) => ({
-                                  ...prev,
-                                  orderFabricMode: e.target.value as "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC",
-                                  orderFabricOptionId: "",
-                                  orderFabricMeters: "1",
-                                }))
-                              }
-                            >
-                              <option value="WITHOUT_FABRIC">Without Fabric</option>
-                              <option value="WITH_OWN_FABRIC">With Own Fabric</option>
-                              <option value="WITH_SHOP_FABRIC">With Fabric From Us</option>
-                            </select>
+                            <div className="space-y-1">
+                              <label htmlFor="add-user-order-quantity" className="text-sm font-medium">Quantity</label>
+                              <Input
+                                id="add-user-order-quantity"
+                                type="number"
+                                min={1}
+                                placeholder="Quantity"
+                                value={newUser.orderQuantity}
+                                onChange={(e) => setNewUser((prev) => ({ ...prev, orderQuantity: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label htmlFor="add-user-order-fabric-mode" className="text-sm font-medium">Fabric Mode</label>
+                              <select
+                                id="add-user-order-fabric-mode"
+                                className="h-10 w-full rounded-md border bg-background px-3"
+                                value={newUser.orderFabricMode}
+                                onChange={(e) =>
+                                  setNewUser((prev) => ({
+                                    ...prev,
+                                    orderFabricMode: e.target.value as "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC",
+                                    orderFabricOptionId: "",
+                                    orderFabricMeters: "1",
+                                  }))
+                                }
+                              >
+                                <option value="WITHOUT_FABRIC">Without Fabric</option>
+                                <option value="WITH_OWN_FABRIC">With Own Fabric</option>
+                                <option value="WITH_SHOP_FABRIC">With Fabric From Us</option>
+                              </select>
+                            </div>
                           </div>
                           {newUser.orderFabricMode !== "WITH_SHOP_FABRIC" ? (
-                            <select
-                              className="h-10 rounded-md border bg-background px-3"
-                              value={newUser.orderClothType}
-                              onChange={(e) => setNewUser((prev) => ({ ...prev, orderClothType: e.target.value }))}
-                            >
-                              <option value="">Select cloth type</option>
-                              {CLOTH_TYPE_OPTIONS.map((item) => (
-                                <option key={item.value} value={item.value}>
-                                  {item.label}
-                                </option>
-                              ))}
-                            </select>
+                            <div className="space-y-1">
+                              <label htmlFor="add-user-order-cloth-type" className="text-sm font-medium">Cloth Type</label>
+                              <select
+                                id="add-user-order-cloth-type"
+                                className="h-10 w-full rounded-md border bg-background px-3"
+                                value={newUser.orderClothType}
+                                onChange={(e) => setNewUser((prev) => ({ ...prev, orderClothType: e.target.value }))}
+                              >
+                                <option value="">Select cloth type</option>
+                                {CLOTH_TYPE_OPTIONS.map((item) => (
+                                  <option key={item.value} value={item.value}>
+                                    {item.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           ) : null}
                           {newUser.orderFabricMode === "WITH_OWN_FABRIC" ? (
-                            <Input
-                              placeholder="Own fabric image URL (optional)"
-                              value={newUser.orderOwnFabricImage}
-                              onChange={(e) => setNewUser((prev) => ({ ...prev, orderOwnFabricImage: e.target.value }))}
-                            />
+                            <div className="space-y-1">
+                              <label htmlFor="add-user-order-own-fabric-image" className="text-sm font-medium">Own Fabric Image URL</label>
+                              <Input
+                                id="add-user-order-own-fabric-image"
+                                placeholder="Own fabric image URL (optional)"
+                                value={newUser.orderOwnFabricImage}
+                                onChange={(e) => setNewUser((prev) => ({ ...prev, orderOwnFabricImage: e.target.value }))}
+                              />
+                            </div>
                           ) : null}
                           {newUser.orderFabricMode === "WITH_SHOP_FABRIC" ? (
                             <div className="space-y-3">
                               <div className="space-y-2">
-                                <label className="text-sm font-medium">Select Fabric</label>
-                                <div className="relative">
-                                  <Input
-                                    placeholder="Search fabrics..."
-                                    value={fabricSearch}
-                                    onChange={(e) => setFabricSearch(e.target.value)}
-                                    className="mb-2"
-                                  />
-                                  <select
-                                    className="h-10 w-full rounded-md border bg-background px-3"
-                                    value={newUser.orderFabricOptionId}
-                                    onChange={(e) => {
-                                      setNewUser((prev) => ({ ...prev, orderFabricOptionId: e.target.value }))
-                                      setFabricSearch("") // Clear search after selection
-                                    }}
-                                  >
-                                    <option value="">Select fabric option</option>
-                                    {filteredFabrics.map((item) => (
-                                      <option key={item.id} value={item.id}>
-                                        {item.name} ({item.clothType}) - Rs. {item.sellRatePerMeter}/m - Stock {item.stockMeters.toFixed(2)}m
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
+                                <label htmlFor="add-user-order-fabric-option" className="text-sm font-medium">Select Fabric</label>
+                                <SearchableSelect
+                                  id="add-user-order-fabric-option"
+                                  value={newUser.orderFabricOptionId}
+                                  onValueChange={(value) => setNewUser((prev) => ({ ...prev, orderFabricOptionId: value }))}
+                                  options={fabricSelectOptions}
+                                  placeholder="Select fabric option"
+                                  searchPlaceholder="Search fabrics..."
+                                  emptyLabel="No fabric found."
+                                  disabled={loadingFabrics}
+                                />
                               </div>
-                              <Input
-                                type="number"
-                                min={0.1}
-                                step={0.1}
-                                placeholder="Required meters"
-                                value={newUser.orderFabricMeters}
-                                onChange={(e) => setNewUser((prev) => ({ ...prev, orderFabricMeters: e.target.value }))}
-                              />
+                              <div className="space-y-1">
+                                <label htmlFor="add-user-order-fabric-meters" className="text-sm font-medium">Required Meters</label>
+                                <Input
+                                  id="add-user-order-fabric-meters"
+                                  type="number"
+                                  min={0.1}
+                                  step={0.1}
+                                  placeholder="Required meters"
+                                  value={newUser.orderFabricMeters}
+                                  onChange={(e) => setNewUser((prev) => ({ ...prev, orderFabricMeters: e.target.value }))}
+                                />
+                              </div>
                               {selectedNewUserFabric ? (
                                 <div className="rounded-md border p-3 space-y-3">
                                   <div className="flex items-start gap-3">
@@ -1526,41 +1570,35 @@ export default function UsersPage() {
 
           <div className="grid grid-cols-1 gap-3 px-4 pb-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Stitching Service</label>
-              <div className="relative">
-                <Input
-                  placeholder="Search services..."
-                  value={serviceSearch}
-                  onChange={(e) => setServiceSearch(e.target.value)}
-                  className="mb-2"
-                />
-                <select
-                  className="h-10 w-full rounded-md border bg-background px-3"
-                  value={measurementForm.serviceKey}
-                  onChange={(e) => {
-                    setMeasurementForm((prev) => ({
-                      ...prev,
-                      serviceKey: e.target.value,
-                      values: {},
-                      name: prev.name || `${e.target.selectedOptions[0]?.text || "Measurement"} - Admin Verified`,
-                    }))
-                    setServiceSearch("") // Clear search after selection
-                  }}
-                >
-                  <option value="">Select stitching option</option>
-                  {filteredServices.map((service) => (
-                    <option key={service.id} value={service.key}>
-                      {service.name} ({service.category}) - Rs. {service.customerPrice}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <label htmlFor="add-measurement-service" className="text-sm font-medium">Stitching Service</label>
+              <SearchableSelect
+                id="add-measurement-service"
+                value={measurementForm.serviceKey}
+                onValueChange={(value) => {
+                  const selected = serviceOptions.find((service) => service.key === value)
+                  setMeasurementForm((prev) => ({
+                    ...prev,
+                    serviceKey: value,
+                    values: {},
+                    name: prev.name || `${selected?.name || "Measurement"} - Admin Verified`,
+                  }))
+                }}
+                options={stitchingServiceSelectOptions}
+                placeholder="Select stitching option"
+                searchPlaceholder="Search services..."
+                emptyLabel="No stitching service found."
+                disabled={loadingServices}
+              />
             </div>
-            <Input
-              placeholder="Measurement profile name"
-              value={measurementForm.name}
-              onChange={(e) => setMeasurementForm((prev) => ({ ...prev, name: e.target.value }))}
-            />
+            <div className="space-y-1">
+              <label htmlFor="add-measurement-profile-name" className="text-sm font-medium">Measurement Profile Name</label>
+              <Input
+                id="add-measurement-profile-name"
+                placeholder="Measurement profile name"
+                value={measurementForm.name}
+                onChange={(e) => setMeasurementForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
             {selectedMeasurementFields.length > 0 ? (
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1593,11 +1631,15 @@ export default function UsersPage() {
                 {loadingServices ? "Loading stitching options..." : "Select stitching option to load measurement fields."}
               </p>
             )}
-            <Input
-              placeholder="Notes"
-              value={measurementForm.notes}
-              onChange={(e) => setMeasurementForm((prev) => ({ ...prev, notes: e.target.value }))}
-            />
+            <div className="space-y-1">
+              <label htmlFor="add-measurement-notes" className="text-sm font-medium">Notes</label>
+              <Input
+                id="add-measurement-notes"
+                placeholder="Notes"
+                value={measurementForm.notes}
+                onChange={(e) => setMeasurementForm((prev) => ({ ...prev, notes: e.target.value }))}
+              />
+            </div>
             <div className="space-y-3 rounded-md border p-3">
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -1615,91 +1657,98 @@ export default function UsersPage() {
               {measurementForm.createOrder ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input
-                      type="number"
-                      min={1}
-                      placeholder="Quantity"
-                      value={measurementForm.quantity}
-                      onChange={(e) => setMeasurementForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                    />
-                    <select
-                      className="h-10 rounded-md border bg-background px-3"
-                      value={measurementForm.fabricMode}
-                      onChange={(e) =>
-                        setMeasurementForm((prev) => ({
-                          ...prev,
-                          fabricMode: e.target.value as "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC",
-                          fabricOptionId: "",
-                          fabricMeters: "1",
-                          ownFabricImage: "",
-                        }))
-                      }
-                    >
-                      <option value="WITHOUT_FABRIC">Without Fabric</option>
-                      <option value="WITH_OWN_FABRIC">With Own Fabric</option>
-                      <option value="WITH_SHOP_FABRIC">With Fabric From Us</option>
-                    </select>
+                    <div className="space-y-1">
+                      <label htmlFor="add-measurement-order-quantity" className="text-sm font-medium">Quantity</label>
+                      <Input
+                        id="add-measurement-order-quantity"
+                        type="number"
+                        min={1}
+                        placeholder="Quantity"
+                        value={measurementForm.quantity}
+                        onChange={(e) => setMeasurementForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="add-measurement-order-fabric-mode" className="text-sm font-medium">Fabric Mode</label>
+                      <select
+                        id="add-measurement-order-fabric-mode"
+                        className="h-10 w-full rounded-md border bg-background px-3"
+                        value={measurementForm.fabricMode}
+                        onChange={(e) =>
+                          setMeasurementForm((prev) => ({
+                            ...prev,
+                            fabricMode: e.target.value as "WITHOUT_FABRIC" | "WITH_OWN_FABRIC" | "WITH_SHOP_FABRIC",
+                            fabricOptionId: "",
+                            fabricMeters: "1",
+                            ownFabricImage: "",
+                          }))
+                        }
+                      >
+                        <option value="WITHOUT_FABRIC">Without Fabric</option>
+                        <option value="WITH_OWN_FABRIC">With Own Fabric</option>
+                        <option value="WITH_SHOP_FABRIC">With Fabric From Us</option>
+                      </select>
+                    </div>
                   </div>
 
                   {measurementForm.fabricMode !== "WITH_SHOP_FABRIC" ? (
-                    <select
-                      className="h-10 rounded-md border bg-background px-3"
-                      value={measurementForm.clothType}
-                      onChange={(e) => setMeasurementForm((prev) => ({ ...prev, clothType: e.target.value }))}
-                    >
-                      <option value="">Select cloth type</option>
-                      {CLOTH_TYPE_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-1">
+                      <label htmlFor="add-measurement-order-cloth-type" className="text-sm font-medium">Cloth Type</label>
+                      <select
+                        id="add-measurement-order-cloth-type"
+                        className="h-10 w-full rounded-md border bg-background px-3"
+                        value={measurementForm.clothType}
+                        onChange={(e) => setMeasurementForm((prev) => ({ ...prev, clothType: e.target.value }))}
+                      >
+                        <option value="">Select cloth type</option>
+                        {CLOTH_TYPE_OPTIONS.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   ) : null}
 
                   {measurementForm.fabricMode === "WITH_OWN_FABRIC" ? (
-                    <Input
-                      placeholder="Own fabric image URL (optional)"
-                      value={measurementForm.ownFabricImage}
-                      onChange={(e) => setMeasurementForm((prev) => ({ ...prev, ownFabricImage: e.target.value }))}
-                    />
+                    <div className="space-y-1">
+                      <label htmlFor="add-measurement-order-own-fabric-image" className="text-sm font-medium">Own Fabric Image URL</label>
+                      <Input
+                        id="add-measurement-order-own-fabric-image"
+                        placeholder="Own fabric image URL (optional)"
+                        value={measurementForm.ownFabricImage}
+                        onChange={(e) => setMeasurementForm((prev) => ({ ...prev, ownFabricImage: e.target.value }))}
+                      />
+                    </div>
                   ) : null}
 
                   {measurementForm.fabricMode === "WITH_SHOP_FABRIC" ? (
                     <div className="space-y-3">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Select Fabric</label>
-                        <div className="relative">
-                          <Input
-                            placeholder="Search fabrics..."
-                            value={fabricSearch}
-                            onChange={(e) => setFabricSearch(e.target.value)}
-                            className="mb-2"
-                          />
-                          <select
-                            className="h-10 w-full rounded-md border bg-background px-3"
-                            value={measurementForm.fabricOptionId}
-                            onChange={(e) => {
-                              setMeasurementForm((prev) => ({ ...prev, fabricOptionId: e.target.value }))
-                              setFabricSearch("") // Clear search after selection
-                            }}
-                          >
-                            <option value="">Select fabric option</option>
-                            {filteredFabrics.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name} ({item.clothType}) - Rs. {item.sellRatePerMeter}/m - Stock {item.stockMeters.toFixed(2)}m
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        <label htmlFor="add-measurement-order-fabric-option" className="text-sm font-medium">Select Fabric</label>
+                        <SearchableSelect
+                          id="add-measurement-order-fabric-option"
+                          value={measurementForm.fabricOptionId}
+                          onValueChange={(value) => setMeasurementForm((prev) => ({ ...prev, fabricOptionId: value }))}
+                          options={fabricSelectOptions}
+                          placeholder="Select fabric option"
+                          searchPlaceholder="Search fabrics..."
+                          emptyLabel="No fabric found."
+                          disabled={loadingFabrics}
+                        />
                       </div>
-                      <Input
-                        type="number"
-                        min={0.1}
-                        step={0.1}
-                        placeholder="Required meters"
-                        value={measurementForm.fabricMeters}
-                        onChange={(e) => setMeasurementForm((prev) => ({ ...prev, fabricMeters: e.target.value }))}
-                      />
+                      <div className="space-y-1">
+                        <label htmlFor="add-measurement-order-fabric-meters" className="text-sm font-medium">Required Meters</label>
+                        <Input
+                          id="add-measurement-order-fabric-meters"
+                          type="number"
+                          min={0.1}
+                          step={0.1}
+                          placeholder="Required meters"
+                          value={measurementForm.fabricMeters}
+                          onChange={(e) => setMeasurementForm((prev) => ({ ...prev, fabricMeters: e.target.value }))}
+                        />
+                      </div>
                       {selectedMeasurementFabric ? (
                         <div className="rounded-md border p-3 space-y-3">
                           <div className="flex items-start gap-3">

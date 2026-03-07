@@ -190,7 +190,10 @@ export default function AdminFabricsPage() {
       <FeedbackToasts error={error} success={success} />
 
       <Card className="p-4 md:p-6 space-y-4">
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search fabric name/type" />
+        <div className="space-y-1">
+          <label htmlFor="fabric-search" className="text-sm font-medium">Search Fabrics</label>
+          <Input id="fabric-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search fabric name/type" />
+        </div>
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -255,8 +258,13 @@ export default function AdminFabricsPage() {
           </SheetHeader>
 
           <form className="space-y-4 px-4 pb-4" onSubmit={onSubmit}>
-            <Input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Fabric name" required />
-            <select className="h-10 w-full rounded-md border bg-background px-3" value={form.clothType} onChange={(e) => setForm((prev) => ({ ...prev, clothType: e.target.value }))}>
+            <div className="space-y-1">
+              <label htmlFor="fabric-name" className="text-sm font-medium">Fabric Name</label>
+              <Input id="fabric-name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Fabric name" required />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="fabric-cloth-type" className="text-sm font-medium">Cloth Type</label>
+              <select id="fabric-cloth-type" className="h-10 w-full rounded-md border bg-background px-3" value={form.clothType} onChange={(e) => setForm((prev) => ({ ...prev, clothType: e.target.value }))}>
               <option value="COTTON">COTTON</option>
               <option value="SILK">SILK</option>
               <option value="WOOL">WOOL</option>
@@ -264,11 +272,21 @@ export default function AdminFabricsPage() {
               <option value="POLYESTER">POLYESTER</option>
               <option value="BLEND">BLEND</option>
               <option value="CUSTOM">CUSTOM</option>
-            </select>
+              </select>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input value={form.buyRatePerMeter} onChange={(e) => setForm((prev) => ({ ...prev, buyRatePerMeter: e.target.value }))} type="number" min="0" step="0.01" placeholder="Buy rate per meter" required />
-              <Input value={form.sellRatePerMeter} onChange={(e) => setForm((prev) => ({ ...prev, sellRatePerMeter: e.target.value }))} type="number" min="0" step="0.01" placeholder="Sell rate per meter" required />
-              <Input value={form.stockMeters} onChange={(e) => setForm((prev) => ({ ...prev, stockMeters: e.target.value }))} type="number" min="0" step="0.01" placeholder="Stock in meters" required />
+              <div className="space-y-1">
+                <label htmlFor="fabric-buy-rate" className="text-sm font-medium">Buy Rate Per Meter</label>
+                <Input id="fabric-buy-rate" value={form.buyRatePerMeter} onChange={(e) => setForm((prev) => ({ ...prev, buyRatePerMeter: e.target.value }))} type="number" min="0" step="0.01" placeholder="Buy rate per meter" required />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="fabric-sell-rate" className="text-sm font-medium">Sell Rate Per Meter</label>
+                <Input id="fabric-sell-rate" value={form.sellRatePerMeter} onChange={(e) => setForm((prev) => ({ ...prev, sellRatePerMeter: e.target.value }))} type="number" min="0" step="0.01" placeholder="Sell rate per meter" required />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="fabric-stock-meters" className="text-sm font-medium">Stock (Meters)</label>
+                <Input id="fabric-stock-meters" value={form.stockMeters} onChange={(e) => setForm((prev) => ({ ...prev, stockMeters: e.target.value }))} type="number" min="0" step="0.01" placeholder="Stock in meters" required />
+              </div>
             </div>
             <div className="space-y-2 rounded-md border p-3">
               <div className="flex items-center justify-between gap-2">
@@ -288,15 +306,22 @@ export default function AdminFabricsPage() {
                   }}
                 />
               </div>
-              <Input value={form.image} onChange={(e) => setForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Image URL" />
+              <div className="space-y-1">
+                <label htmlFor="fabric-image-url" className="text-sm font-medium">Image URL</label>
+                <Input id="fabric-image-url" value={form.image} onChange={(e) => setForm((prev) => ({ ...prev, image: e.target.value }))} placeholder="Image URL" />
+              </div>
               {form.image ? <img src={form.image} alt={form.name || "Fabric"} className="h-32 w-full rounded border object-cover" /> : null}
             </div>
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-              placeholder="Description"
-              className="h-24 w-full rounded-md border bg-background p-3 text-sm"
-            />
+            <div className="space-y-1">
+              <label htmlFor="fabric-description" className="text-sm font-medium">Description</label>
+              <textarea
+                id="fabric-description"
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Description"
+                className="h-24 w-full rounded-md border bg-background p-3 text-sm"
+              />
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))} />
               Active
